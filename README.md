@@ -3,7 +3,7 @@ a visual filter graph help you debug your cv program.
 
 # make
 ```
-make `pkg-config --libs --cflags opencv3` -std=c++11 -o cvtool cvtool.cpp` 
+g++ `pkg-config --libs --cflags opencv3` -std=c++11 -o cvtool cvtool.cpp` 
 ```
 # usage
 ```
