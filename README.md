@@ -40,4 +40,5 @@ fg.apply([](Mat res) { /** detect object or other things */}).filter(frame);
 
     BRANCH(channel);
     BRANCH(bgr2gray);
+    BRANCH(cut);
 ```
