@@ -861,6 +861,115 @@ protected:
     int threshold_;
 };
 
+class cut_filter : public itf_filter
+{
+public:
+    cut_filter(const string& name) : itf_filter(name)
+    {
+        state_ = cut_IDLE;
+        setMouseCallback(name_, on_mouse, this);
+    }
+protected:
+    static void on_mouse(int event, int x, int y, int flags, void* ctx)
+    {
+        ((cut_filter*)ctx)->on_mouse_(event, x, y, flags, ctx);
+    }
+    void on_mouse_(int event, int x, int y, int flags, void* ctx)
+    {
+        ostringstream os;
+        switch (event)
+        {
+        case EVENT_RBUTTONDBLCLK:
+            if (cut_FIN == state_)
+            {
+
+                Mat dst;
+                curve_(rect_).copyTo(dst);
+                os << "cut_"
+                         << rect_.x << "_"
+                         << rect_.y << "_"
+                         << rect_.width << "_"
+                         << rect_.height;
+                if (EVENT_FLAG_CTRLKEY & flags)
+                    os << ".bmp";
+                else if (EVENT_FLAG_SHIFTKEY & flags)
+                    os << ".jpg";
+                else
+                    os << ".png";
+                imwrite(os.str(), dst);
+            }
+            state_ = cut_SAVE;
+            break;
+        case EVENT_LBUTTONDOWN:
+            state_ = cut_EDIT;
+            rect_.x = x;
+            rect_.y = y;
+            break;
+        case EVENT_MOUSEMOVE:
+            if (cut_EDIT == state_)
+            {
+                rect_.width = x - rect_.x;
+                rect_.height = y - rect_.y;
+            }
+            break;
+        case EVENT_LBUTTONUP:
+            if (cut_EDIT == state_)
+            {
+                if (0 == rect_.width)
+                    rect_.width = 4;
+                if (0 == rect_.height)
+                    rect_.height = 4;
+                if (rect_.width < 0)
+                {
+                    rect_.x += rect_.width;
+                    rect_.width -= rect_.width + rect_.width;
+                }
+                if (rect_.height < 0)
+                {
+                    rect_.y += rect_.height;
+                    rect_.height -= rect_.height + rect_.height;
+                }
+                state_ = cut_FIN;
+            }
+            break;
+        }
+
+        if (state_ > cut_IDLE)
+        {
+            Mat show;
+            curve_.copyTo(show);
+            if (state_ < cut_RESET)
+                rectangle(show, Point( rect_.x, rect_.y ), Point(rect_.x + rect_.width, rect_.y + rect_.height ), Scalar(0, 255, 0), 1);
+            else
+            {
+                if (cut_SAVE == state_)
+                    putText(show, (os << " saved!", os).str(), Point(0, 20), cv::FONT_HERSHEY_DUPLEX, 1.0, CV_RGB(118, 185, 0));
+                state_ = cut_IDLE;
+            }
+            imshow(name_, show);
+        }
+    }
+    virtual Mat _filter(Mat& image)
+    {
+        curve_ = image;
+        state_ = cut_IDLE;
+        rect_ = Rect();
+        imshow(name_, curve_);
+        return image;
+    }
+    Rect fullrect_;
+    Rect rect_;
+    enum {
+        cut_IDLE,
+        cut_EDIT,
+        cut_FIN,
+        cut_RESET,
+        cut_SAVE,
+    } state_;
+    Mat curve_;
+};
+
+
 itf_filter* createFilter(const char* filter, const string& name)
 {
 #define BRANCH(nameX)   \
@@ -895,6 +1004,7 @@ itf_filter* createFilter(const char* filter, const string& name)
 
     BRANCH(channel);
     BRANCH(bgr2gray);
+    BRANCH(cut);
     return NULL;
 }
 
