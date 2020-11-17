@@ -15,9 +15,15 @@ cvtool Mario/%04d.png pyrDown,pyrUp,morphology
 ```
 # custom program
 ```
+#include "cvtool.h"
+using namespace zhelper;
+using namespace cvtool;
+...
 filter_graph fg;
 fg.apply([](Mat res) { /** detect object or other things */}).filter(frame);
 ```
+1. implement your filter derived from itf_filter;
+2. or use filter_graph to apply your function which accepts Mat filtered by filter_graph;
 # filters
 ```
     BRANCH(Canny);
