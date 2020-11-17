@@ -20,10 +20,12 @@ fg.apply([](Mat res) { /** detect object or other things */}).filter(frame);
 ```
 # filters
 ```
+    BRANCH(Canny);
     BRANCH(threshold);
     BRANCH(morphology);
     BRANCH(medianBlur);
     BRANCH(GaussianBlur);
+    BRANCH(blur);
     BRANCH(bilateral);
     BRANCH(box);
     BRANCH(sqrBox);
@@ -42,4 +44,9 @@ fg.apply([](Mat res) { /** detect object or other things */}).filter(frame);
     BRANCH(channel);
     BRANCH(bgr2gray);
     BRANCH(cut);
+    
+    BRANCH(dem);
+    BRANCH(distrans);
+    
+    BRANCH(contours)
 ```
