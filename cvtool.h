@@ -24,6 +24,7 @@ SOFTWARE.
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+#include <opencv2/imgcodecs.hpp>
 
 //#include <opencv2/imgcodecs.hpp>
 #include <string>
@@ -48,7 +49,7 @@ public:
     itf_filter(const string& name) : num_(++snum_)
     {
         ostringstream os;
-        os << num_ << ": " << name;
+        os << num_ << ": " << name << " -=>@github.com/bbqz007";
         name_ = os.str();
         namedWindow(name_);
     }
@@ -95,6 +96,7 @@ public:
         apply_ = f;
         return *this;
     }
+    Mat origin() { return tmp_; }
 protected:
     Mat filter()
     {
@@ -155,6 +157,61 @@ protected:
         imshow(name_, bw);
         return bw;
     }
+    int threshval_;
+};
+
+class Canny_filter : public itf_filter
+{
+public:
+    Canny_filter(const string& name) : itf_filter(name)
+    {
+        threshval1_ = 0;
+        threshval2_ = 50;
+        aperturesize_ = 5;
+        l2gradient_ = 0;
+        createTrackbar("threshval-1", name_, &threshval1_, 255, itf_filter::update_, this);
+        createTrackbar("threshval-2", name_, &threshval2_, 255, itf_filter::update_, this);
+        createTrackbar("aperture size |1", name_, &aperturesize_, 7, itf_filter::update_, this);
+        createTrackbar("L2 gradient (OFF/ON)", name_, &l2gradient_, 1, itf_filter::update_, this);
+        setTrackbarMin("aperture size |1", name_, 3);
+        setTrackbarMax("aperture size |1", name_, 7);
+    }
+protected:
+    virtual Mat _filter(Mat& image)
+    {
+        Mat res;
+        Canny(image, res, threshval1_, threshval2_, aperturesize_|1, l2gradient_);
+        imshow(name_, res);
+        return res;
+    }
+    int threshval1_;
+    int threshval2_;
+    int aperturesize_;
+    int l2gradient_;
+};
+
+class HoughLines_filter : public itf_filter
+{
+public:
+    HoughLines_filter(const string& name) : itf_filter(name)
+    {
+        rho_ = 50;
+        theta_ = 0;
+        threshval_ = 0;
+        createTrackbar("rho*.1", name_, &rho_, 1000, itf_filter::update_, this);
+        createTrackbar("theta*.1", name_, &theta_, 1000, itf_filter::update_, this);
+        createTrackbar("threshval", name_, &threshval_, 7, itf_filter::update_, this);
+    }
+protected:
+    virtual Mat _filter(Mat& image)
+    {
+        Mat res(image.size(), CV_8UC1);
+        HoughLines(image, res, rho_*.1, theta_*.1, threshval_);
+        imshow(name_, res);
+        return res;
+    }
+    int rho_;
+    int theta_;
     int threshval_;
 };
 
@@ -301,14 +358,14 @@ public:
     {
         ddepth_ = 0;
         ksize_ = 3;
-        createTrackbar("ddepth(-1,8,16,24,32)", name_, &ddepth_, 4, itf_filter::update_, this);
+        createTrackbar("ddepth(-1,8U,8S,16U,16S,32S,32F)", name_, &ddepth_, 7, itf_filter::update_, this);
         createTrackbar("ksize|1", name_, &ksize_, 11, itf_filter::update_, this);
     }
 protected:
     virtual Mat _filter(Mat& image)
     {
         Mat res;
-        boxFilter(image, res, (ddepth_)?ddepth_*8:-1, Size(ksize_|1, ksize_|1));
+        boxFilter(image, res, ddepth_-1, Size(ksize_|1, ksize_|1));
         imshow(name_, res);
         return res;
     }
@@ -323,14 +380,14 @@ public:
     {
         ddepth_ = 0;
         ksize_ = 3;
-        createTrackbar("ddepth(-1,8,16,24,32)", name_, &ddepth_, 4, itf_filter::update_, this);
+        createTrackbar("ddepth(-1,8U,8S,16U,16S,32S,32F)", name_, &ddepth_, 7, itf_filter::update_, this);
         createTrackbar("ksize|1", name_, &ksize_, 11, itf_filter::update_, this);
     }
 protected:
     virtual Mat _filter(Mat& image)
     {
         Mat res;
-        sqrBoxFilter(image, res, (ddepth_)?ddepth_*8:-1, Size(ksize_|1, ksize_|1));
+        sqrBoxFilter(image, res, ddepth_-1, Size(ksize_|1, ksize_|1));
         imshow(name_, res);
         return res;
     }
@@ -365,19 +422,27 @@ class Sobel_filter : public itf_filter
 public:
     Sobel_filter(const string& name) : itf_filter(name)
     {
-        dx_ = dy_ = 0;
+        dx_ = dy_ = 1;
         ddepth_ = 0;
         ksize_ = 3;
-        createTrackbar("dx", name_, &dx_, 11, itf_filter::update_, this);
-        createTrackbar("dy", name_, &dy_, 11, itf_filter::update_, this);
-        createTrackbar("ddepth(-1,8,16,24,32)", name_, &ddepth_, 4, itf_filter::update_, this);
+        createTrackbar("dx", name_, &dx_, 10, itf_filter::update_, this);
+        setTrackbarMax("dx", name_, max(((ksize_|1) - 1), 1));
+        createTrackbar("dy", name_, &dy_, 10, itf_filter::update_, this);
+        setTrackbarMax("dy", name_, max(((ksize_|1) - 1), 1));
+        createTrackbar("ddepth(-1,8U,8S,16U,16S,32S,32F)", name_, &ddepth_, 7, itf_filter::update_, this);
         createTrackbar("ksize|1", name_, &ksize_, 11, itf_filter::update_, this);
     }
 protected:
     virtual Mat _filter(Mat& image)
     {
         Mat res;
-        Sobel(image, res, (ddepth_)?ddepth_*8:-1, dx_, dy_, ksize_|1);
+        setTrackbarMax("dx", name_, max(((ksize_|1) - 1), 1));
+        setTrackbarMax("dy", name_, max(((ksize_|1) - 1), 1));
+        if (dx_ == 0)
+            setTrackbarMin("dy", name_, 1);
+        if (dy_ == 0)
+            setTrackbarMin("dx", name_, 1);
+        Sobel(image, res, ddepth_-1, dx_, dy_, ksize_|1);
         imshow(name_, res);
         return res;
     }
@@ -393,22 +458,22 @@ public:
     Scharr_filter(const string& name) : itf_filter(name)
     {
         dx_ = dy_ = 0;
-        ksize_ = 3;
-        createTrackbar("dx", name_, &dx_, 11, itf_filter::update_, this);
-        createTrackbar("dy", name_, &dy_, 11, itf_filter::update_, this);
-        createTrackbar("ksize|1", name_, &ksize_, 11, itf_filter::update_, this);
+        ddepth_ = 0;
+        createTrackbar("dx(0,1)", name_, &dx_, 1, itf_filter::update_, this);
+        //createTrackbar("dy*.01", name_, &dy_, 1, itf_filter::update_, this);
+        createTrackbar("ddepth(-1,8U,8S,16U,16S,32S,32F)", name_, &ddepth_, 7, itf_filter::update_, this);
     }
 protected:
     virtual Mat _filter(Mat& image)
     {
         Mat res;
-        Scharr(image, res, dx_, dy_, ksize_|1);
+        Scharr(image, res, ddepth_-1, dx_, 1 - dx_);
         imshow(name_, res);
         return res;
     }
     int dx_;
     int dy_;
-    int ksize_;
+    int ddepth_;
 };
 
 class Laplacian_filter : public itf_filter
@@ -419,7 +484,7 @@ public:
         ddepth_ = 0;
         ksize_ = 3;
         delta_ = 0;
-        createTrackbar("ddepth(-1,8,16,24,32)", name_, &ddepth_, 4, itf_filter::update_, this);
+        createTrackbar("ddepth(-1,8U,8S,16U,16S,32S,32F)", name_, &ddepth_, 7, itf_filter::update_, this);
         createTrackbar("ksize|1", name_, &ksize_, 11, itf_filter::update_, this);
         createTrackbar("delta", name_, &delta_, 11, itf_filter::update_, this);
     }
@@ -737,6 +802,168 @@ protected:
     int y_;
 };
 
+// demonstrates
+class dem_filter : public itf_filter
+{
+public:
+    dem_filter(const string& name) : itf_filter(name)
+    {
+        brightness_ = 100;
+        contrast_ = 100;
+        createTrackbar("brightness-100", name_, &brightness_, 200, itf_filter::update_, this);
+        createTrackbar("contrast-100", name_, &contrast_, 200, itf_filter::update_, this);
+    }
+protected:
+    virtual Mat _filter(Mat& image)
+    {
+        Mat res;
+        int brightness = brightness_ - 100;
+        int contrast = contrast_ - 100;
+        /*
+         * The algorithm is by Werner D. Streidt
+         * (http://visca.com/ffactory/archives/5-99/msg00021.html)
+         */
+        double a, b;
+        if( contrast > 0 )
+        {
+            double delta = 127.*contrast/100;
+            a = 255./(255. - delta*2);
+            b = a*(brightness - delta);
+        }
+        else
+        {
+            double delta = -128.*contrast/100;
+            a = (256.-delta*2)/255.;
+            b = a*brightness + delta;
+        }
+        image.convertTo(res, CV_8U, a, b);
+        imshow(name_, res);
+        return res;
+    }
+    int brightness_;
+    int contrast_;
+};
+
+class distrans_filter : public itf_filter
+{
+public:
+    distrans_filter(const string& name) : itf_filter(name)
+    {
+        maskSize0_ = DIST_MASK_5;
+        voronoiType_ = -1;
+        edgeThresh_ = 100;
+        distType0_ = DIST_L1;
+        method_ = 0;
+        createTrackbar("Brightness Threshold", name_, &edgeThresh_, 255, itf_filter::update_, this);
+        createTrackbar("method:\n"
+            "0 - use C/Inf metric\n"
+            "1 - use L1 metric\n"
+            "2 - use L2 metric\n"
+            "3 - use 3x3 mask\n"
+            "4 - use 5x5 mask\n"
+            "5 - use precise distance transform\n"
+            "6 - switch to Voronoi diagram mode\n"
+            "7 - switch to pixel-based Voronoi diagram mode\n", name_,
+            &method_, 7, itf_filter::update_, this);
+
+    }
+protected:
+    virtual Mat _filter(Mat& image)
+    {
+        Mat gray = image;
+        Mat res;
+        if (method_ < 6)
+            voronoiType_ = -1;
+        switch (method_)
+        {
+        case 0: distType0_ = DIST_C; break;
+        case 1: distType0_ = DIST_L1; break;
+        case 2: distType0_ = DIST_L2; break;
+        case 3: maskSize0_ = DIST_MASK_3; break;
+        case 4: maskSize0_ = DIST_MASK_5; break;
+        case 5: maskSize0_ = DIST_MASK_PRECISE; break;
+        case 6: voronoiType_ = 0; break;
+        case 7: voronoiType_ = 1; break;
+        }
+
+        static const Scalar colors[] =
+        {
+            Scalar(0,0,0),
+            Scalar(255,0,0),
+            Scalar(255,128,0),
+            Scalar(255,255,0),
+            Scalar(0,255,0),
+            Scalar(0,128,255),
+            Scalar(0,255,255),
+            Scalar(0,0,255),
+            Scalar(255,0,255)
+        };
+
+        int maskSize = voronoiType_ >= 0 ? DIST_MASK_5 : maskSize0_;
+        int distType = voronoiType_ >= 0 ? DIST_L2 : distType0_;
+
+        Mat edge = gray >= edgeThresh_, dist, labels, dist8u;
+
+        if( voronoiType_ < 0 )
+            distanceTransform(edge, dist, distType, maskSize);
+        else
+            distanceTransform(edge, dist, labels, distType, maskSize, voronoiType_);
+
+        if( voronoiType_ < 0 )
+        {
+            // begin "painting" the distance transform result
+            dist *= 5000;
+            pow(dist, 0.5, dist);
+
+            Mat dist32s, dist8u1, dist8u2;
+
+            dist.convertTo(dist32s, CV_32S, 1, 0.5);
+            dist32s &= Scalar::all(255);
+
+            dist32s.convertTo(dist8u1, CV_8U, 1, 0);
+            dist32s *= -1;
+
+            dist32s += Scalar::all(255);
+            dist32s.convertTo(dist8u2, CV_8U);
+
+            Mat planes[] = {dist8u1, dist8u2, dist8u2};
+            merge(planes, 3, dist8u);
+        }
+        else
+        {
+            dist8u.create(labels.size(), CV_8UC3);
+            for( int i = 0; i < labels.rows; i++ )
+            {
+                const int* ll = (const int*)labels.ptr(i);
+                const float* dd = (const float*)dist.ptr(i);
+                uchar* d = (uchar*)dist8u.ptr(i);
+                for( int j = 0; j < labels.cols; j++ )
+                {
+                    int idx = ll[j] == 0 || dd[j] == 0 ? 0 : (ll[j]-1)%8 + 1;
+                    float scale = 1.f/(1 + dd[j]*dd[j]*0.0004f);
+                    int b = cvRound(colors[idx][0]*scale);
+                    int g = cvRound(colors[idx][1]*scale);
+                    int r = cvRound(colors[idx][2]*scale);
+                    d[j*3] = (uchar)b;
+                    d[j*3+1] = (uchar)g;
+                    d[j*3+2] = (uchar)r;
+                }
+            }
+        }
+        res = dist8u;
+        imshow(name_, dist8u);
+        return res;
+    }
+    int maskSize0_;
+    int voronoiType_;
+    int edgeThresh_;
+    int distType0_;
+    int method_;
+};
+
+// apply:
+// contours
+
 /**
 imgproc
 CV_EXPORTS_W void medianBlur( InputArray src, OutputArray dst, int ksize );
@@ -804,7 +1031,7 @@ public:
         channel_ = 0;
         threshold_ = 128;
         createTrackbar("threshold", name_, &threshold_, 255, itf_filter::update_, this);
-        createTrackbar("(full,==,!=,<,>,<=,>=)", name_, &op_, 6, itf_filter::update_, this);
+        createTrackbar("(full,==,!=,<,>,<=,>=,&,^,|,&~)", name_, &op_, 10, itf_filter::update_, this);
         createTrackbar("channel (0-3)", name_, &channel_, 3, itf_filter::update_, this);
     }
 protected:
@@ -821,6 +1048,10 @@ protected:
         case 4: res = res > threshold_; break;
         case 5: res = res <= threshold_; break;
         case 6: res = res >= threshold_; break;
+        case 7: res = res & threshold_; break;
+        case 8: res = res ^ threshold_; break;
+        case 9: res = res | threshold_; break;
+        case 10: res = res & (~threshold_ & 0xff); break;
         }
         imshow(name_, res);
         return res;
@@ -838,7 +1069,7 @@ public:
         op_ = 0;
         threshold_ = 128;
         createTrackbar("threshold", name_, &threshold_, 255, itf_filter::update_, this);
-        createTrackbar("(full,==,!=,<,>,<=,>=)", name_, &op_, 6, itf_filter::update_, this);
+        createTrackbar("(full,==,!=,<,>,<=,>=,&,^,|,&~)", name_, &op_, 10, itf_filter::update_, this);
     }
 protected:
     virtual Mat _filter(Mat& image)
@@ -853,6 +1084,10 @@ protected:
         case 4: res = res > threshold_; break;
         case 5: res = res <= threshold_; break;
         case 6: res = res >= threshold_; break;
+        case 7: res = res & threshold_; break;
+        case 8: res = res ^ threshold_; break;
+        case 9: res = res | threshold_; break;
+        case 10: res = res & (~threshold_ & 0xff); break;
         }
         imshow(name_, res);
         return res;
@@ -861,6 +1096,7 @@ protected:
     int threshold_;
 };
 
+// op
 class cut_filter : public itf_filter
 {
 public:
@@ -869,12 +1105,17 @@ public:
         state_ = cut_IDLE;
         setMouseCallback(name_, on_mouse, this);
     }
+    cut_filter& apply(function<void(Mat,Mat)> f)
+    {
+        apply_ = f;
+        return *this;
+    }
 protected:
     static void on_mouse(int event, int x, int y, int flags, void* ctx)
     {
-        ((cut_filter*)ctx)->on_mouse_(event, x, y, flags, ctx);
+        ((cut_filter*)ctx)->_on_mouse(event, x, y, flags, ctx);
     }
-    void on_mouse_(int event, int x, int y, int flags, void* ctx)
+    void _on_mouse(int event, int x, int y, int flags, void* ctx)
     {
         ostringstream os;
         switch (event)
@@ -882,7 +1123,6 @@ protected:
         case EVENT_RBUTTONDBLCLK:
             if (cut_FIN == state_)
             {
-
                 Mat dst;
                 curve_(rect_).copyTo(dst);
                 os << "cut_"
@@ -897,6 +1137,11 @@ protected:
                 else
                     os << ".png";
                 imwrite(os.str(), dst);
+                if (apply_)
+                {
+                    cut_ = dst;
+                    apply_(curve_, cut_);
+                }
             }
             state_ = cut_SAVE;
             break;
@@ -955,6 +1200,8 @@ protected:
         state_ = cut_IDLE;
         rect_ = Rect();
         imshow(name_, curve_);
+        if (apply_)
+            apply_(image, cut_);
         return image;
     }
     Rect fullrect_;
@@ -967,8 +1214,56 @@ protected:
         cut_SAVE,
     } state_;
     Mat curve_;
+    Mat cut_;
+    function<void(Mat,Mat)> apply_;
 };
 
+// apply
+class contours_filter : public itf_filter
+{
+public:
+    contours_filter(const string& name) : itf_filter(name)
+    {
+        threshold_ = 20;
+        retr_ = 1;
+        showpoly_ = 1;
+        showcontours_ = 1;
+        createTrackbar("threshold*.001", name_, &threshold_, 200, itf_filter::update_, this);
+        createTrackbar("show poly(OFF/ON)", name_, &showpoly_, 1, itf_filter::update_, this);
+        createTrackbar("show contours(OFF/ON)", name_, &showcontours_, 1, itf_filter::update_, this);
+        createTrackbar("RETR:\n"
+            "0 - RETR_EXTERNAL \n"
+            "1 - RETR_LIST\n"
+            "2 - RETR_CCOMP\n"
+            "3 - RETR_TREE\n"
+            "4 - RETR_FLOODFILL\n", name_,
+            &retr_, 4, itf_filter::update_, this);
+    }
+protected:
+    virtual Mat _filter(Mat& image)
+    {
+        vector<vector<Point> > contours;
+        findContours(image, contours, retr_, CHAIN_APPROX_SIMPLE);
+        vector<Point> approx;
+
+        Mat show = graph_->origin().clone();
+        // test each contour
+        if (showpoly_)
+            for( size_t i = 0; i < contours.size(); i++ )
+            {
+                approxPolyDP(contours[i], approx, arcLength(contours[i], true)*threshold_/1000., true);
+                polylines(show, approx, true, Scalar(255, 0, 0), 2, LINE_AA);
+            }
+        if (showcontours_)
+            drawContours(show, contours, -1, Scalar(0, 255, 0), 1, LINE_AA);
+        imshow(name_, show);
+        return image;
+    }
+    int threshold_;
+    int retr_;
+    int showpoly_;
+    int showcontours_;
+};
 
 itf_filter* createFilter(const char* filter, const string& name)
 {
@@ -985,8 +1280,11 @@ itf_filter* createFilter(const char* filter, const string& name)
     {
         return (itf_filter*)new morphology_filter(name);
     }
+    BRANCH(Canny);
+    BRANCH(HoughLines);
     BRANCH(medianBlur);
     BRANCH(GaussianBlur);
+    BRANCH(blur);
     BRANCH(bilateral);
     BRANCH(box);
     BRANCH(sqrBox);
@@ -996,6 +1294,7 @@ itf_filter* createFilter(const char* filter, const string& name)
     BRANCH(cornerMinEigenVal);
     BRANCH(cornerHarris);
     BRANCH(cornerEigenValsAndVecs);
+    BRANCH(preCornerDetect);
     BRANCH(warpAffine);
     BRANCH(warpPerspective);
     BRANCH(warpPolar);
@@ -1005,6 +1304,11 @@ itf_filter* createFilter(const char* filter, const string& name)
     BRANCH(channel);
     BRANCH(bgr2gray);
     BRANCH(cut);
+
+    BRANCH(dem);
+    BRANCH(distrans);
+
+    BRANCH(contours);
     return NULL;
 }
 
