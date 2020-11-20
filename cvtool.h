@@ -42,6 +42,9 @@ namespace zhelper
 namespace cvtool
 {
 
+class itf_filter;
+itf_filter* createFilter(const char* filter, const string& name);
+
 class filter_graph;
 class itf_filter
 {
@@ -63,6 +66,7 @@ public:
     }
 protected:
     static void update_(int pos, void* userdata);
+    void update_next_(Mat image);
     virtual Mat _filter(Mat& image) = 0;
     string name_;
     const int num_;
@@ -96,7 +100,8 @@ public:
         apply_ = f;
         return *this;
     }
-    Mat origin() { return tmp_; }
+    Mat origin() { return (retmp_.empty())?tmp_:retmp_; }
+    void update_origin(Mat m) { retmp_ = m; }
 protected:
     Mat filter()
     {
@@ -109,9 +114,32 @@ protected:
             apply_(res);
         return res;
     }
+    void filter_next(itf_filter* f, Mat image)
+    {
+        Mat res;
+        auto it = filters_.begin();
+        for(int i = 0; i < filters_.size(); ++i, ++it)
+        {
+            if (filters_[i].get() == f)
+            {
+                break;
+            }
+        }
+        if (it != filters_.end())
+        {
+            res = image;
+            for_each(++it, filters_.end(),
+                 [&](sptr_filter& filter){
+                    res = filter->filter(res);
+                 });
+            if (apply_)
+                apply_(res);
+        }
+    }
     friend class itf_filter;
     vector<sptr_filter> filters_;
     Mat tmp_;
+    Mat retmp_;
     function<void(Mat)> apply_;
 };
 
@@ -120,6 +148,11 @@ void itf_filter::update_(int pos, void* userdata)
     itf_filter* f = (itf_filter*)userdata;
     if (f)
         f->graph_->filter();
+}
+
+void itf_filter::update_next_(Mat image)
+{
+    graph_->filter_next(this, image);
 }
 
 int itf_filter::snum_ = 0;
@@ -223,12 +256,14 @@ public:
         method_ = 0;
         threshval_ = 0;
         shape_ = 0;
+        kernel_ = 1;
         createTrackbar("morphology", name_, &threshval_, 20, itf_filter::update_, this);
         setTrackbarMin("morphology", name_, -10);
         setTrackbarMax("morphology", name_, 10);
         //setTrackbarPos("morphology", name_, 0);
-        createTrackbar("open/close/erode/dilate/gradient/tophat/blackhat", name_, &method_, 6, itf_filter::update_, this);
+        createTrackbar("method:\n0-open\n1-close\n2-erode\n3-dilate\n4-gradient\n5-tophat\n6-blackhat", name_, &method_, 6, itf_filter::update_, this);
         createTrackbar("rect/ellipse/cross", name_, &shape_, 2, itf_filter::update_, this);
+        createTrackbar("kernel(OFF/ON)", name_, &kernel_, 1, itf_filter::update_, this);
     }
 protected:
     virtual Mat _filter(Mat& image)
@@ -237,6 +272,7 @@ protected:
         int n = threshval_;
         int an = abs(n);
         Mat element;
+        if (kernel_)
         switch (shape_)
         {
         case 0:
@@ -282,6 +318,7 @@ protected:
     int threshval_;
     int method_;
     int shape_;
+    int kernel_;
 
 };
 
@@ -442,6 +479,11 @@ protected:
             setTrackbarMin("dy", name_, 1);
         if (dy_ == 0)
             setTrackbarMin("dx", name_, 1);
+        if (dx_ && dy_)
+        {
+            setTrackbarMin("dy", name_, 0);
+            setTrackbarMin("dx", name_, 0);
+        }
         Sobel(image, res, ddepth_-1, dx_, dy_, ksize_|1);
         imshow(name_, res);
         return res;
@@ -1096,12 +1138,122 @@ protected:
     int threshold_;
 };
 
+class range_filter : public itf_filter
+{
+public:
+    range_filter(const string& name) : itf_filter(name)
+    {
+        h1_ = s1_ = v1_ = 0;
+        h2_ = s2_ = v2_ = 255;
+        method_ = inv_ = 0;
+        createTrackbar("h1(b,h)", name_, &h1_, 255, itf_filter::update_, this);
+        createTrackbar("h2(b,h)", name_, &h2_, 255, itf_filter::update_, this);
+        createTrackbar("s1(g,l)", name_, &s1_, 255, itf_filter::update_, this);
+        createTrackbar("s2(g,l)", name_, &s2_, 255, itf_filter::update_, this);
+        createTrackbar("v1(r,s)", name_, &v1_, 255, itf_filter::update_, this);
+        createTrackbar("v2(r,s)", name_, &v2_, 255, itf_filter::update_, this);
+        createTrackbar("hsv,bgr,hls", name_, &method_, 2, itf_filter::update_, this);
+        createTrackbar("invert mask", name_, &inv_, 1, itf_filter::update_, this);
+    }
+protected:
+    virtual Mat _filter(Mat& image)
+    {
+        Mat res;
+        Mat hsv, mask;
+        if (0 == method_)
+            cvtColor(image, hsv, CV_BGR2HSV);
+        else if (2 == method_)
+            cvtColor(image, hsv, CV_BGR2HLS);
+        else
+            hsv = image;
+        inRange(hsv,
+                Scalar(min(h1_, h2_), min(s1_, s2_), min(v1_, v2_)),
+                Scalar(max(h1_, h2_), max(s1_, s2_), max(v1_, v2_)),
+                mask);
+        bitwise_and(image, image, res, (inv_)?~mask:mask);
+        imshow(name_, res);
+        return res;
+    }
+    int h1_, h2_, s1_, s2_, v1_, v2_;
+    int method_;
+    int inv_;
+};
+
+class colormap_filter : public itf_filter
+{
+public:
+    colormap_filter(const string& name) : itf_filter(name)
+    {
+        type_ = 0;
+        createTrackbar("type:\n"
+                       "AUTUMN=0, BONE, JET, WINTER, RAINBOW,\n"
+                       "OCEAN=5, SUMMER, SPRING, COOL, HSV,\n"
+                       "PINK=10, HOT, PARULA, MAGMA, INFERNO,\n"
+                       "PLASMA=15, VIRIDIS, CIVIDIS, TWILIGHT,\n"
+                       "TWILIGHT_SHIFTED=19, TURBO, DEEPGREEN", name_,
+                       &type_, 21, itf_filter::update_, this);
+    }
+protected:
+    virtual Mat _filter(Mat& image)
+    {
+        Mat res;
+        applyColorMap(image, res, type_);
+        imshow(name_, res);
+        return res;
+    }
+    int type_;
+};
+
+// opencv/samples/cpp/digits.cpp
+class deskew_filter : public itf_filter
+{
+public:
+    deskew_filter(const string& name) : itf_filter(name)
+    {
+        sz_ = 20;
+        createTrackbar("size", name_, &sz_, 10000, itf_filter::update_, this);
+    }
+protected:
+    virtual Mat _filter(Mat& image)
+    {
+        Mat res;
+        if (!image.empty())
+            setTrackbarMax("size", name_, max(image.cols, image.rows));
+        sz_ = max(1, sz_);
+        Moments m = moments(image);
+        if (abs(m.mu02) < 0.01)
+        {
+            res = image.clone();
+        }
+        else
+        {
+            float skew = (float)(m.mu11 / m.mu02);
+            float M_vals[2][3] = {{1, skew, -0.5f * sz_ * skew}, {0, 1, 0}};
+            Mat M(Size(3, 2), CV_32F);
+
+            for (int i = 0; i < M.rows; i++)
+            {
+                for (int j = 0; j < M.cols; j++)
+                {
+                    M.at<float>(i, j) = M_vals[i][j];
+                }
+            }
+
+            warpAffine(image, res, M, Size(sz_, sz_), WARP_INVERSE_MAP | INTER_LINEAR);
+        }
+        imshow(name_, res);
+        return res;
+    }
+    int sz_;
+};
+
 // op
 class cut_filter : public itf_filter
 {
 public:
     cut_filter(const string& name) : itf_filter(name)
     {
+        use_save_ = true;
         state_ = cut_IDLE;
         setMouseCallback(name_, on_mouse, this);
     }
@@ -1124,7 +1276,8 @@ protected:
             if (cut_FIN == state_)
             {
                 Mat dst;
-                curve_(rect_).copyTo(dst);
+                cutrect_ = rect_;
+                curve_(cutrect_).copyTo(dst);
                 os << "cut_"
                          << rect_.x << "_"
                          << rect_.y << "_"
@@ -1136,7 +1289,8 @@ protected:
                     os << ".jpg";
                 else
                     os << ".png";
-                imwrite(os.str(), dst);
+                if (use_save_)
+                    imwrite(os.str(), dst);
                 if (apply_)
                 {
                     cut_ = dst;
@@ -1174,6 +1328,14 @@ protected:
                     rect_.y += rect_.height;
                     rect_.height -= rect_.height + rect_.height;
                 }
+                if (rect_.y + rect_.height > curve_.rows)
+                {
+                    rect_.height = curve_.rows - rect_.y;
+                }
+                if (rect_.x + rect_.width > curve_.cols)
+                {
+                    rect_.width = curve_.cols - rect_.x;
+                }
                 state_ = cut_FIN;
             }
             break;
@@ -1188,7 +1350,10 @@ protected:
             else
             {
                 if (cut_SAVE == state_)
+                {
+                    rectangle(show, Point( cutrect_.x, cutrect_.y ), Point(cutrect_.x + cutrect_.width, cutrect_.y + cutrect_.height ), Scalar(0, 0, 255), 1);
                     putText(show, (os << " saved!", os).str(), Point(0, 20), cv::FONT_HERSHEY_DUPLEX, 1.0, CV_RGB(118, 185, 0));
+                }
                 state_ = cut_IDLE;
             }
             imshow(name_, show);
@@ -1198,14 +1363,23 @@ protected:
     {
         curve_ = image;
         state_ = cut_IDLE;
-        rect_ = Rect();
-        imshow(name_, curve_);
+        //rect_ = Rect();
+        if (cutrect_.empty())
+            imshow(name_, curve_);
+        else
+        {
+            Mat show;
+            curve_.copyTo(show);
+            rectangle(show, Point(cutrect_.x, cutrect_.y ), Point(cutrect_.x + cutrect_.width, cutrect_.y + cutrect_.height ), Scalar(0, 0, 255), 1);
+            imshow(name_, show);
+        }
         if (apply_)
             apply_(image, cut_);
         return image;
     }
     Rect fullrect_;
     Rect rect_;
+    Rect cutrect_;
     enum {
         cut_IDLE,
         cut_EDIT,
@@ -1215,7 +1389,76 @@ protected:
     } state_;
     Mat curve_;
     Mat cut_;
+    bool use_save_;
     function<void(Mat,Mat)> apply_;
+};
+
+class crop_filter : public cut_filter
+{
+public:
+    crop_filter(const string& name) : cut_filter(name)
+    {
+        use_save_  = false;
+        apply([this](Mat, Mat crop){
+              if (state_ == cut_FIN)
+              {
+                  update_next_(crop);
+                  graph_->update_origin(crop);
+              }
+        });
+    }
+protected:
+    virtual Mat _filter(Mat& image)
+    {
+        Mat res = image;
+        cut_filter::_filter(image);
+
+        if (!cutrect_.empty() && !cut_.empty())
+        {
+            curve_(cutrect_).copyTo(cut_);
+            res = cut_;
+            graph_->update_origin(cut_);
+        }
+        return res;
+    }
+    Mat crop_;
+};
+
+class zoom_filter : public itf_filter
+{
+public:
+    zoom_filter(const string& name) : itf_filter(name)
+    {
+        x_ = 100;
+        y_ = 100;
+        inter_ = 1;
+        createTrackbar("zoom x(%)", name_, &x_, 400, itf_filter::update_, this);
+        createTrackbar("zoom y(%)", name_, &y_, 400, itf_filter::update_, this);
+        createTrackbar("interpola:\n"
+            "INTER_NEAREST        = 0,\n"
+            "INTER_LINEAR         = 1,\n"
+            "INTER_CUBIC          = 2,\n"
+            "INTER_AREA           = 3,\n"
+            "INTER_LANCZOS4       = 4,\n"
+            "INTER_LINEAR_EXACT = 5, \n"
+            "INTER_NEAREST_EXACT  = 6,\n"
+            "INTER_MAX            = 7,\n", name_,
+            &inter_, 7, itf_filter::update_, this);
+    }
+protected:
+    virtual Mat _filter(Mat& image)
+    {
+        Mat res;
+        setTrackbarMin("zoom x(%)", name_, 50);
+        setTrackbarMin("zoom y(%)", name_, 50);
+        resize(image, res, Size(), x_/100., y_/100., inter_);
+        graph_->update_origin(res);
+        imshow(name_, res);
+        return res;
+    }
+    int x_;
+    int y_;
+    int inter_;
 };
 
 // apply
@@ -1265,6 +1508,24 @@ protected:
     int showcontours_;
 };
 
+class exec_filter : public itf_filter
+{
+public:
+    exec_filter(const string& name) : itf_filter(name)
+    {
+    }
+protected:
+    virtual Mat _filter(Mat& image)
+    {
+        Mat res;
+        if (apply_)
+            apply_(image);
+        imshow(name_, image);
+        return image;
+    }
+    function<void(Mat)> apply_;
+};
+
 itf_filter* createFilter(const char* filter, const string& name)
 {
 #define BRANCH(nameX)   \
@@ -1303,8 +1564,13 @@ itf_filter* createFilter(const char* filter, const string& name)
 
     BRANCH(channel);
     BRANCH(bgr2gray);
+    BRANCH(range);
+    BRANCH(colormap);
     BRANCH(cut);
+    BRANCH(crop);
+    BRANCH(zoom);
 
+    BRANCH(deskew);
     BRANCH(dem);
     BRANCH(distrans);
 
