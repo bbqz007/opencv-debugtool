@@ -11,7 +11,7 @@ g++ `pkg-config --libs --cflags opencv3` -std=c++11 -o cvtool cvtool.cpp`
 cvtool <image> <filter,...>
 ```
 ```
-cvtool Mario/%04d.png pyrDown,pyrUp,morphology
+cvtool Mario/%04d.png pyrDown,pyrUp,morphology,channel,canny,contours
 ```
 # custom program
 ```
@@ -49,7 +49,11 @@ fg.apply([](Mat res) { /** detect object or other things */}).filter(frame);
 
     BRANCH(channel);
     BRANCH(bgr2gray);
+    BRANCH(range);
+    BRANCH(colormap);
     BRANCH(cut);
+    BRANCH(crop);
+    BRANCH(zoom);
     
     BRANCH(dem);
     BRANCH(distrans);
