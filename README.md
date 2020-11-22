@@ -52,6 +52,7 @@ fg.apply([](Mat res) { /** detect object or other things */}).filter(frame);
     BRANCH(range);
     BRANCH(colormap);
     BRANCH(cut);
+    BRANCH(cut2);
     BRANCH(crop);
     BRANCH(zoom);
     
@@ -59,4 +60,9 @@ fg.apply([](Mat res) { /** detect object or other things */}).filter(frame);
     BRANCH(distrans);
     
     BRANCH(contours)
+    BRANCH(cascade);
 ```
+### filter-cut
+### filter-cut2
+similar to opencv_annotation. ctrl+left_mouse_button, to select positive region, can select multiple, and double click right_mouse_button to generate images to pos/ and neg/, and infos to pos/pos.txt and neg/neg.txt. helpful for using opencv_createsamples. 
+when you `cvtool image cut2,cascade` to check your trained classifier, you can easily use cut2 filter to add samples and train again.
