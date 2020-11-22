@@ -25,10 +25,12 @@ SOFTWARE.
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/imgcodecs.hpp>
+#include <opencv2/objdetect.hpp>
 
 //#include <opencv2/imgcodecs.hpp>
 #include <string>
 #include <sstream>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <vector>
@@ -1301,14 +1303,14 @@ protected:
             break;
         case EVENT_LBUTTONDOWN:
             state_ = cut_EDIT;
-            rect_.x = x;
-            rect_.y = y;
+            rect_.x = max(0, x);
+            rect_.y = max(0, y);
             break;
         case EVENT_MOUSEMOVE:
             if (cut_EDIT == state_)
             {
-                rect_.width = x - rect_.x;
-                rect_.height = y - rect_.y;
+                rect_.width = max(0, x) - rect_.x;
+                rect_.height = max(0, y) - rect_.y;
             }
             break;
         case EVENT_LBUTTONUP:
@@ -1393,6 +1395,245 @@ protected:
     function<void(Mat,Mat)> apply_;
 };
 
+// cut2
+// generate pos/$time.jpg and neg/$time.jpg
+// append info to pos/pos.txt and neg/neg.txt
+class cut2_filter : public itf_filter
+{
+public:
+    cut2_filter(const string& name) : itf_filter(name)
+    {
+        use_save_ = true;
+        state_ = cut_IDLE;
+        setMouseCallback(name_, on_mouse, this);
+    }
+protected:
+    static void on_mouse(int event, int x, int y, int flags, void* ctx)
+    {
+        ((cut2_filter*)ctx)->_on_mouse(event, x, y, flags, ctx);
+    }
+    void save_pos(const string& name)
+    {
+        imwrite("pos/" + name, curve_);
+        ofstream fout;
+        fout.open("pos/pos.txt", ios_base::out|ios_base::app);
+        fout << "pos/" << name << " ";
+        fout << posrect_.size() << " ";
+        for_each(posrect_.begin(), posrect_.end(),
+                 [&](Rect& rect){
+                     fout << rect.x << " "
+                        << rect.y << " "
+                        << rect.width << " "
+                        << rect.height << " ";
+                 });
+        fout << "\n";
+        fout.close();
+    }
+    void save_neg(const string& name)
+    {
+        Mat neg = curve_.clone();
+        Mat element = getStructuringElement(MORPH_RECT, Size(21, 21), Point(10, 10));
+        Mat morph;
+        morphologyEx(curve_, morph, MORPH_OPEN, element);
+        for_each(posrect_.begin(), posrect_.end(),
+                 [&](Rect& rect){
+                     //morph(rect).copyTo(neg(rect));
+                     ((Mat)Mat::zeros(rect.size(), neg.type())).copyTo(neg(rect));
+                 });
+        imwrite("neg/" + name, neg);
+        ofstream fout;
+        fout.open("neg/neg.txt", ios_base::out|ios_base::app);
+        fout << "neg/" << name << "\n";
+        fout.close();
+    }
+    void _on_mouse(int event, int x, int y, int flags, void* ctx)
+    {
+        ostringstream os;
+        switch (event)
+        {
+        case EVENT_MBUTTONDOWN:
+            state_ = cut_IDLE;
+            rect_ = Rect();
+            posrect_.clear();
+            break;
+        case EVENT_RBUTTONDBLCLK:
+            if (!posrect_.empty())
+            {
+                Mat dst;
+                cutrect_ = rect_;
+                curve_(cutrect_).copyTo(dst);
+                time_t ts = time(0);
+                os << "cascade_"
+                         << ts;
+                if (EVENT_FLAG_CTRLKEY & flags)
+                    os << ".bmp";
+                else if (EVENT_FLAG_SHIFTKEY & flags)
+                    os << ".jpg";
+                else
+                    os << ".png";
+                save_pos(os.str());
+                save_neg(os.str());
+
+                posrect_.clear();
+                //rect_ = Rect();
+                saved_name_ = os.str();
+            }
+            state_ = cut_SAVE;
+            break;
+        case EVENT_LBUTTONDOWN:
+            state_ = cut_PREEDIT;
+            rect_.x = max(0, x);
+            rect_.y = max(0, y);
+            if (EVENT_FLAG_CTRLKEY & flags)
+            {
+                state_ = cut_EDIT;
+                rect_.width = 0;
+                rect_.height = 0;
+            }
+            break;
+        case EVENT_MOUSEMOVE:
+            if (cut_EDIT == state_
+                && (EVENT_FLAG_CTRLKEY & flags))
+            {
+                rect_.width = max(0, x) - rect_.x;
+                rect_.height = max(0, y) - rect_.y;
+            }
+            break;
+        case EVENT_LBUTTONDBLCLK:
+            if (!(EVENT_FLAG_CTRLKEY & flags)
+                && rect_.width && rect_.height)
+            {
+                rect_.x = max(0, x);
+                rect_.y = max(0, y);
+                if (rect_.y + rect_.height > curve_.rows)
+                {
+                    rect_.height = curve_.rows - rect_.y;
+                }
+                if (rect_.x + rect_.width > curve_.cols)
+                {
+                    rect_.width = curve_.cols - rect_.x;
+                }
+                posrect_.push_back(rect_);
+                state_ = cut_FIN;
+            }
+            break;
+        case EVENT_LBUTTONUP:
+            if (cut_EDIT == state_
+                && (EVENT_FLAG_CTRLKEY & flags))
+            {
+                if (0 == rect_.width)
+                    rect_.width = 4;
+                if (0 == rect_.height)
+                    rect_.height = 4;
+                if (rect_.width < 0)
+                {
+                    rect_.x += rect_.width;
+                    rect_.width -= rect_.width + rect_.width;
+                }
+                if (rect_.height < 0)
+                {
+                    rect_.y += rect_.height;
+                    rect_.height -= rect_.height + rect_.height;
+                }
+                if (rect_.y + rect_.height > curve_.rows)
+                {
+                    rect_.height = curve_.rows - rect_.y;
+                }
+                if (rect_.x + rect_.width > curve_.cols)
+                {
+                    rect_.width = curve_.cols - rect_.x;
+                }
+                posrect_.push_back(rect_);
+                state_ = cut_FIN;
+            }
+            break;
+        }
+
+        /**
+        if (state_ > cut_IDLE)
+        {
+            Mat show;
+            curve_.copyTo(show);
+            if (state_ < cut_RESET)
+                rectangle(show, Point( rect_.x, rect_.y ), Point(rect_.x + rect_.width, rect_.y + rect_.height ), Scalar(0, 255, 0), 1);
+            else
+            {
+                if (cut_SAVE == state_)
+                {
+                    putText(show, (os << " saved!", os).str(), Point(0, 20), cv::FONT_HERSHEY_DUPLEX, 1.0, CV_RGB(118, 185, 0));
+                }
+                state_ = cut_IDLE;
+            }
+            for_each(posrect_.begin(), posrect_.end(),
+                     [&](Rect& rect){
+                        rectangle(show, Point( rect.x, rect.y ), Point(rect.x + rect.width, rect.y + rect.height ), Scalar(0, 0, 255), 1);
+                     });
+            imshow(name_, show);
+        }
+        */
+        show();
+        if (cut_SAVE == state_)
+            state_ = cut_IDLE;
+    }
+    void show()
+    {
+        if (posrect_.empty() && state_ == cut_IDLE)
+        {
+            imshow(name_, curve_);
+            return;
+        }
+        Mat show;
+        curve_.copyTo(show);
+        if (state_ > cut_IDLE && state_ < cut_RESET)
+        {
+            rectangle(show, Point( rect_.x, rect_.y ), Point(rect_.x + rect_.width, rect_.y + rect_.height ), Scalar(0, 255, 0), 1);
+        }
+        if (cut_SAVE == state_)
+        {
+            putText(show, saved_name_, Point(0, 20), cv::FONT_HERSHEY_DUPLEX, 1.0, CV_RGB(118, 185, 0));
+        }
+        for_each(posrect_.begin(), posrect_.end(),
+                     [&](Rect& rect){
+                        rectangle(show, Point( rect.x, rect.y ), Point(rect.x + rect.width, rect.y + rect.height ), Scalar(0, 0, 255), 1);
+                     });
+        imshow(name_, show);
+    }
+    virtual Mat _filter(Mat& image)
+    {
+        curve_ = image;
+        state_ = cut_IDLE;
+        //rect_ = Rect();
+        /**
+        if (cutrect_.empty())
+            imshow(name_, curve_);
+        else
+        {
+            Mat show;
+            curve_.copyTo(show);
+            rectangle(show, Point(cutrect_.x, cutrect_.y ), Point(cutrect_.x + cutrect_.width, cutrect_.y + cutrect_.height ), Scalar(0, 0, 255), 1);
+            imshow(name_, show);
+        }
+        */
+        show();
+        return image;
+    }
+    Rect fullrect_;
+    Rect rect_;
+    Rect cutrect_;
+    vector<Rect> posrect_;
+    enum {
+        cut_IDLE,
+        cut_PREEDIT,
+        cut_EDIT,
+        cut_FIN,
+        cut_RESET,
+        cut_SAVE,
+    } state_;
+    Mat curve_;
+    string saved_name_;
+    bool use_save_;
+};
+
 class crop_filter : public cut_filter
 {
 public:
@@ -1451,7 +1692,10 @@ protected:
         Mat res;
         setTrackbarMin("zoom x(%)", name_, 50);
         setTrackbarMin("zoom y(%)", name_, 50);
-        resize(image, res, Size(), x_/100., y_/100., inter_);
+        if (x_ != 100 || y_ != 100)
+            resize(image, res, Size(), x_/100., y_/100., inter_);
+        else
+            res = image;
         graph_->update_origin(res);
         imshow(name_, res);
         return res;
@@ -1506,6 +1750,68 @@ protected:
     int retr_;
     int showpoly_;
     int showcontours_;
+};
+
+class cascade_filter : public itf_filter
+{
+public:
+    cascade_filter(const string& name) : itf_filter(name)
+    {
+        algo1_ = algo2_ = algo3_ = algo4_ = 0;
+        algo2_ = 1;
+        x_ = 20;
+        y_ = 20;
+        scalefactor_ = 15;
+        minneighbros_ = 3;
+        cascade_.load(samples::findFile("cascade/cascade.xml"));
+        createTrackbar("scalefactor*.01 + 1", name_, &scalefactor_, 100, itf_filter::update_, this);
+        createTrackbar("min neighbros", name_, &minneighbros_, 10, itf_filter::update_, this);
+        createTrackbar("DO_CANNY_PRUNING   (OFF/ON)", name_, &algo1_, 1, itf_filter::update_, this);
+        createTrackbar("SCALE_IMAGE        (OFF/ON)", name_, &algo2_, 1, itf_filter::update_, this);
+        createTrackbar("FIND_BIGGEST_OBJECT(OFF/ON)", name_, &algo3_, 1, itf_filter::update_, this);
+        createTrackbar("DO_ROUGH_SEARCH    (OFF/ON)", name_, &algo4_, 1, itf_filter::update_, this);
+        createTrackbar("x", name_, &x_, 100, itf_filter::update_, this);
+        createTrackbar("y", name_, &y_, 100, itf_filter::update_, this);
+    }
+protected:
+    virtual Mat _filter(Mat& image)
+    {
+        Mat res = image;
+        if (!cascade_.empty())
+        {
+            vector<Rect> objs;
+            Mat show = res.clone();
+            cascade_.detectMultiScale(image, objs, scalefactor_/100.+1, minneighbros_,
+                                      (algo1_ << 0)|(algo2_ << 1)|(algo2_ << 2)|(algo3_ << 3),
+                                      Size(x_, y_));
+            int i = 0;
+            for_each(objs.begin(), objs.end(),
+                     [&](Rect& rect){
+                        static const Scalar colors[] =
+                        {
+                            Scalar(0,0,0),
+                            Scalar(255,0,0),
+                            Scalar(255,128,0),
+                            Scalar(255,255,0),
+                            Scalar(0,255,0),
+                            Scalar(0,128,255),
+                            Scalar(0,255,255),
+                            Scalar(0,0,255),
+                            Scalar(255,0,255)
+                        };
+                        rectangle(show, rect, colors[++i%8], 1, LINE_AA);
+                     });
+            imshow(name_, show);
+        }
+
+        return res;
+    }
+    int x_;
+    int y_;
+    int scalefactor_;
+    int minneighbros_;
+    int algo1_, algo2_, algo3_, algo4_;
+    CascadeClassifier cascade_;
 };
 
 class exec_filter : public itf_filter
@@ -1567,6 +1873,7 @@ itf_filter* createFilter(const char* filter, const string& name)
     BRANCH(range);
     BRANCH(colormap);
     BRANCH(cut);
+    BRANCH(cut2);
     BRANCH(crop);
     BRANCH(zoom);
 
@@ -1575,6 +1882,7 @@ itf_filter* createFilter(const char* filter, const string& name)
     BRANCH(distrans);
 
     BRANCH(contours);
+    BRANCH(cascade);
     return NULL;
 }
 
