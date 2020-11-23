@@ -1752,6 +1752,124 @@ protected:
     int showcontours_;
 };
 
+class match_filter : public cut_filter
+{
+public:
+    match_filter(const string& name) : cut_filter(name)
+    {
+        use_save_ = false;
+        use_mask_ = false;
+        image_window_ = "Match Image " + name_;
+        result_window_ = "Result window " + name_;
+        namedWindow(image_window_, WINDOW_AUTOSIZE );
+        namedWindow(result_window_, WINDOW_AUTOSIZE );
+        createTrackbar("Method: \n 0: SQDIFF \n 1: SQDIFF NORMED \n 2: TM CCORR \n 3: TM CCORR NORMED \n 4: TM COEFF \n 5: TM COEFF NORMED",
+                        image_window_, &match_method_, max_Trackbar_, MatchingMethod, this);
+        createTrackbar("threshold*.001%", image_window_, &threshold, 10000, MatchingMethod, this);
+    }
+protected:
+    virtual Mat _filter(Mat& image)
+    {
+        if (!apply_)
+            apply([&](Mat res, Mat sel){
+                  img_ = res;
+                  if (!sel.empty())
+                      templ_ = sel;
+                  _MatchingMethod();
+            });
+        return cut_filter::_filter(image);
+    }
+    static void MatchingMethod(int, void* ctx)
+    {
+        ((match_filter*)ctx)->_MatchingMethod();
+    }
+    void _MatchingMethod()
+    {
+        Mat img_display;
+        if (templ_.empty())
+            return;
+        img_.copyTo(img_display);
+        if (img_.type() != templ_.type()
+            && (img_.type() == CV_8UC1 && templ_.type() == CV_8UC3))
+        {
+            Mat tmp;
+            cvtColor(templ_, tmp, CV_BGR2GRAY);
+            templ_ = tmp;
+        }
+        int result_cols =  img_.cols - templ_.cols + 1;
+        int result_rows = img_.rows - templ_.rows + 1;
+        result_.create( result_rows, result_cols, CV_32FC1 );
+        bool method_accepts_mask = (CV_TM_SQDIFF == match_method_ || match_method_ == CV_TM_CCORR_NORMED);
+        if (use_mask_ && method_accepts_mask)
+        {
+            matchTemplate(img_, templ_, result_, match_method_, mask_);
+        }
+        else
+        {
+            matchTemplate(img_, templ_, result_, match_method_);
+        }
+        if (!(match_method_ & 1))
+            normalize(result_, result_, 0, 1, NORM_MINMAX, -1, Mat());
+        double minVal; double maxVal; Point minLoc; Point maxLoc;
+        Point matchLoc;
+        double matchVal;
+        minMaxLoc(result_, &minVal, &maxVal, &minLoc, &maxLoc, Mat());
+        if (match_method_  == TM_SQDIFF || match_method_ == TM_SQDIFF_NORMED)
+        {
+            matchLoc = minLoc;
+            matchVal = minVal;
+        }
+        else
+        {
+            matchLoc = maxLoc;
+            matchVal = maxVal;
+        }
+        if (0 == threshold)
+        {
+            rectangle(img_display, matchLoc, Point(matchLoc.x + templ_.cols , matchLoc.y + templ_.rows ), Scalar::all(0), 1, LINE_AA, 0 );
+            rectangle(result_, matchLoc, Point(matchLoc.x + templ_.cols , matchLoc.y + templ_.rows ), Scalar::all(0), 1, LINE_AA, 0 );
+        }
+        else
+        {
+            static const Scalar colors[] =
+            {
+                Scalar(0,0,0),
+                Scalar(255,0,0),
+                Scalar(255,128,0),
+                Scalar(255,255,0),
+                Scalar(0,255,0),
+                Scalar(0,128,255),
+                Scalar(0,255,255),
+                Scalar(0,0,255),
+                Scalar(255,0,255)
+            };
+            float* it = (float*)result_.data;
+            const int cxr = result_.cols * result_.rows;
+            double threshold1000 = threshold / 100000.;
+            for (int i = 0; i < cxr; ++i, ++it)
+            {
+                if (fabs(*it - matchVal) <= threshold1000)
+                {
+                    Point pt(i % result_.cols, i / result_.cols);
+                    rectangle( img_display, pt, Point(pt.x + templ_.cols , pt.y + templ_.rows), colors[i%8], 1, LINE_AA, 0 );
+                    //rectangle( result, matchLoc, Point( pt.x + templ.cols , pt.y + templ.rows ), Scalar::all(0), 1, LINE_AA, 0 );
+                }
+            }
+        }
+        imshow(image_window_, img_display);
+        imshow(result_window_, result_);
+        return;
+    }
+    bool use_mask_ = false;
+    Mat img_, templ_, mask_, result_;
+    string image_window_;
+    string result_window_;
+    int match_method_;
+    int max_Trackbar_ = 5;
+    int threshold = 0;
+    bool init = false;
+};
+
 class cascade_filter : public itf_filter
 {
 public:
@@ -1882,6 +2000,7 @@ itf_filter* createFilter(const char* filter, const string& name)
     BRANCH(distrans);
 
     BRANCH(contours);
+    BRANCH(match);
     BRANCH(cascade);
     return NULL;
 }
