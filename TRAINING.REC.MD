@@ -21,39 +21,6 @@ Create training samples from images collection...
 pos.txt(32) : parse errorDone. Created 86 samples
 
 opencv_traincascade -data cascade/ -vec pos.vec -bg neg.txt -precalcValBufSize 6000 -precalcIdxBufSize 6000 -numPos 86 -numNeg 86 -numStages 12 -w 24 -h 24 -maxFalseAlarmRate 0.4 -minHitRate 0.999
----------------------------------------------------------------------------------
-Training parameters are pre-loaded from the parameter file in data folder!
-Please empty this folder if you want to use a NEW set of training parameters.
----------------------------------------------------------------------------------
-PARAMETERS:
-cascadeDirName: cascade/
-vecFileName: pos.vec
-bgFileName: neg.txt
-numPos: 86
-numNeg: 86
-numStages: 12
-precalcValBufSize[Mb] : 6000
-precalcIdxBufSize[Mb] : 6000
-acceptanceRatioBreakValue : -1
-stageType: BOOST
-featureType: HAAR
-sampleWidth: 24
-sampleHeight: 24
-boostType: GAB
-minHitRate: 0.999
-maxFalseAlarmRate: 0.4
-weightTrimRate: 0.95
-maxDepth: 1
-maxWeakCount: 100
-mode: BASIC
-Number of unique features given windowSize [24,24] : 162336
-
-Stages 0-11 are loaded
-[root@localhost data]# rm cascade/*
-rm: remove regular file 'cascade/cascade.xml'? q
-rm: remove regular file 'cascade/params.xml'? ^C
-[root@localhost data]# rm -f cascade/*
-[root@localhost data]# /opt/z/tmp/opencv-3.4/build/bin/opencv_traincascade -data cascade/ -vec pos.vec -bg neg.txt -precalcValBufSize 6000 -precalcIdxBufSize 6000 -numPos 86 -numNeg 86 -numStages 12 -w 24 -h 24 -maxFalseAlarmRate 0.4 -minHitRate 0.999
 PARAMETERS:
 cascadeDirName: cascade/
 vecFileName: pos.vec
