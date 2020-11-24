@@ -1,3 +1,4 @@
+## <100 samples training
 ```
 opencv_createsamples -info pos.txt -w 24 -h 24 -num 1000 -vec pos.vec
 Info file name: pos.txt
@@ -292,6 +293,7 @@ Training until now has taken 0 days 0 hours 0 minutes 54 seconds.
 
 ```
 
+## >300 samples training 
 ```
 opencv_createsamples -info pos.txt -w 24 -h 24 -num 1000 -vec pos.vec
 Info file name: pos.txt
