@@ -52,6 +52,7 @@ fg.apply([](Mat res) { /** detect object or other things */}).filter(frame);
     BRANCH(bgr2gray);
     BRANCH(range);
     BRANCH(colormap);
+    
     BRANCH(cut);
     BRANCH(cut2);
     BRANCH(crop);
@@ -60,8 +61,10 @@ fg.apply([](Mat res) { /** detect object or other things */}).filter(frame);
     BRANCH(dem);
     BRANCH(distrans);
     
-    BRANCH(contours)
+    BRANCH(contours);
+    BRANCH(match);
     BRANCH(cascade);
+    BRANCH(feature);
 ```
 ### filter-cut
 **clip and save, or apply to your custom handler**
@@ -74,6 +77,8 @@ select a region to clip, **double click right_mouse_button** to pass it to next 
 ### filter-cut2
 **similar to opencv_annotation.**
 
+help you easily build samples for machine learning. 
+
 **ctrl+left_mouse_button** to select positive region, can select multiple, and **double click right_mouse_button** to generate images to pos/ and neg/, and infos to pos/pos.txt and neg/neg.txt. helpful for using opencv_createsamples. 
 
 **double click left_mouse_button** can reuse last region size and anchor to the point you are clicking.
@@ -81,3 +86,22 @@ select a region to clip, **double click right_mouse_button** to pass it to next 
 **middle_mouse_button** clears what you select before generating stuffs.
 
 when you `cvtool image cut2,cascade` to check your trained classifier, you can easily use cut2 filter to add samples and train again.
+
+### filter-zoom
+**strentch x(width) or y(height)**
+
+range in 0.5x and 4x.
+
+use case `cvtool crop,zoom` can clip a part of picture and strentch it to make more features for matches or detections.
+
+### filter-contours
+**apply to find contours**
+
+### filter-match
+**apply to match template**
+
+### filter-cascade
+**apply to cascade**
+
+### filter-feature
+**apply to detect 2d features**
