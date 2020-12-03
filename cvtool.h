@@ -26,6 +26,7 @@ SOFTWARE.
 #include <opencv2/imgproc.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/objdetect.hpp>
+#include <opencv2/features2d.hpp>
 
 //#include <opencv2/imgcodecs.hpp>
 #include <string>
@@ -67,6 +68,26 @@ public:
         return _filter(image);
     }
 protected:
+    static const Scalar& next_color(bool reset = false)
+    {
+        static const Scalar colors[] =
+        {
+            Scalar(0,0,0),
+            Scalar(255,0,0),
+            Scalar(255,128,0),
+            Scalar(255,255,0),
+            Scalar(0,255,0),
+            Scalar(0,128,255),
+            Scalar(0,255,255),
+            Scalar(0,0,255),
+            Scalar(255,0,255)
+        };
+        static const int limits = sizeof(colors) / sizeof(Scalar);
+        static int i = 0;
+        if (reset)
+            i = 0;
+        return colors[++i%limits];
+    }
     static void update_(int pos, void* userdata);
     void update_next_(Mat image);
     virtual Mat _filter(Mat& image) = 0;
@@ -1206,6 +1227,93 @@ protected:
     int type_;
 };
 
+/**
+feature
+    Feature2D is kind of Algorithm,
+        has two main functions, detect and compute.
+        1. detect corners KeyPoints
+        2. compute description Mat(rix).
+    A Feature2D backend may be detector or extractor or both.
+    SIFT, ORB, BRISK, KAZE, AKAZE, MSER.
+    FastFeatureDetector, AgastFeatureDetector, GFTTDetector, SimpleBlobDetector.
+    AffineFeature implementing the wrapper which makes detectors and extractors to be affine invariant.
+**/
+class feature_filter : public itf_filter
+{
+public:
+    feature_filter(const string& name) : itf_filter(name)
+    {
+        curfeat_ = -1;
+        feature_ = 0;
+        affine_ = 1;
+        curaff_ = affine_;
+        limits_ = 0;
+        createTrackbar("feat count", name_, &limits_, INT_MAX, itf_filter::update_, this);
+        createTrackbar("feature:\nsift:0\norb:1\nbrisk:2\n"
+                       "kaze:3\nakaze:4\nmser:5\n"
+                       "fast:6\nagast:7\ngftt:8\nblob:9\n",
+                        name_, &feature_, 9, itf_filter::update_, this);
+        createTrackbar("Affine (OFF/ON)", name_, &affine_, 1, itf_filter::update_, this);
+    }
+protected:
+    virtual Mat _filter(Mat& image)
+    {
+        Mat res = image;
+
+        bool changed = feature_ != curfeat_ || affine_ != curaff_ ;
+        curaff_ = affine_;
+        if (feature_ != curfeat_)
+        {
+            switch (feature_)
+            {
+            // both detector and extractor
+            case 0: backend_ = SIFT::create(); break;
+            case 1: backend_ = ORB::create(); break;
+            case 2: backend_ = BRISK::create(); break;
+            case 3: backend_ = KAZE::create(); break;
+            case 4: backend_ = AKAZE::create(); break;
+            // just detector
+            case 5: backend_ = MSER::create(); break;
+            case 6: backend_ = FastFeatureDetector::create(); break;
+            case 7: backend_ = AgastFeatureDetector::create(); break;
+            case 8: backend_ = GFTTDetector::create(); break;
+            case 9: backend_ = SimpleBlobDetector::create(); break;
+            }
+            ext_ = AffineFeature::create(backend_);
+            curfeat_ = feature_;
+        }
+
+
+        vector<KeyPoint> kp1;
+        Mat desc1;
+        Mat show = image.clone();
+        //ext_->detectAndCompute(image, Mat(), kp1, desc1);
+        if (affine_ && feature_ < 5)
+            ext_->detect(image, kp1);
+        else
+            backend_->detect(image, kp1);
+        setTrackbarMax("feat count", name_, kp1.size());
+        setTrackbarPos("feat count", name_, kp1.size());
+        if (changed)
+            limits_ = kp1.size();
+        next_color(true);
+        for_each(kp1.begin(), kp1.begin() + limits_,
+                 [&](KeyPoint& kp) {
+                    circle(show, kp.pt, 3, next_color());
+                 });
+        imshow(name_, show);
+        return res;
+    }
+    int feature_;
+    int curfeat_;
+    int affine_;
+    int curaff_;
+    int limits_;
+    Ptr<Feature2D> backend_;
+    Ptr<AffineFeature> ext_;
+};
+
+
 // opencv/samples/cpp/digits.cpp
 class deskew_filter : public itf_filter
 {
@@ -1634,6 +1742,8 @@ protected:
     bool use_save_;
 };
 
+typedef cut2_filter anno_filter;
+
 class crop_filter : public cut_filter
 {
 public:
@@ -1864,7 +1974,7 @@ protected:
     Mat img_, templ_, mask_, result_;
     string image_window_;
     string result_window_;
-    int match_method_;
+    int match_method_ = 0;
     int max_Trackbar_ = 5;
     int threshold = 0;
     bool init = false;
@@ -1877,25 +1987,26 @@ public:
     {
         algo1_ = algo2_ = algo3_ = algo4_ = 0;
         algo2_ = 1;
-        x_ = 20;
-        y_ = 20;
+        x_ = 15;
+        y_ = 15;
         scalefactor_ = 15;
         minneighbros_ = 3;
         cascade_.load(samples::findFile("cascade/cascade.xml"));
-        createTrackbar("scalefactor*.01 + 1", name_, &scalefactor_, 100, itf_filter::update_, this);
-        createTrackbar("min neighbros", name_, &minneighbros_, 10, itf_filter::update_, this);
-        createTrackbar("DO_CANNY_PRUNING   (OFF/ON)", name_, &algo1_, 1, itf_filter::update_, this);
-        createTrackbar("SCALE_IMAGE        (OFF/ON)", name_, &algo2_, 1, itf_filter::update_, this);
-        createTrackbar("FIND_BIGGEST_OBJECT(OFF/ON)", name_, &algo3_, 1, itf_filter::update_, this);
-        createTrackbar("DO_ROUGH_SEARCH    (OFF/ON)", name_, &algo4_, 1, itf_filter::update_, this);
-        createTrackbar("x", name_, &x_, 100, itf_filter::update_, this);
-        createTrackbar("y", name_, &y_, 100, itf_filter::update_, this);
+        //createTrackbar("scalefactor*.01 + 1", name_, &scalefactor_, 100, itf_filter::update_, this);
+        //createTrackbar("min neighbros", name_, &minneighbros_, 10, itf_filter::update_, this);
+        //createTrackbar("DO_CANNY_PRUNING   (OFF/ON)", name_, &algo1_, 1, itf_filter::update_, this);
+        //createTrackbar("SCALE_IMAGE        (OFF/ON)", name_, &algo2_, 1, itf_filter::update_, this);
+        //createTrackbar("FIND_BIGGEST_OBJECT(OFF/ON)", name_, &algo3_, 1, itf_filter::update_, this);
+        //createTrackbar("DO_ROUGH_SEARCH    (OFF/ON)", name_, &algo4_, 1, itf_filter::update_, this);
+        //createTrackbar("x", name_, &x_, 100, itf_filter::update_, this);
+        //createTrackbar("y", name_, &y_, 100, itf_filter::update_, this);
+        createTrackbar("switch(OFF/ON)", name_, &switch_, 1, itf_filter::update_, this);
     }
 protected:
     virtual Mat _filter(Mat& image)
     {
         Mat res = image;
-        if (!cascade_.empty())
+        if (!cascade_.empty() && switch_)
         {
             vector<Rect> objs;
             Mat show = res.clone();
@@ -1921,9 +2032,14 @@ protected:
                      });
             imshow(name_, show);
         }
+        else
+        {
+            imshow(name_, res);
+        }
 
         return res;
     }
+    int switch_ = false;
     int x_;
     int y_;
     int scalefactor_;
@@ -1992,8 +2108,11 @@ itf_filter* createFilter(const char* filter, const string& name)
     BRANCH(colormap);
     BRANCH(cut);
     BRANCH(cut2);
+    BRANCH(anno);
     BRANCH(crop);
     BRANCH(zoom);
+
+    BRANCH(feature);
 
     BRANCH(deskew);
     BRANCH(dem);
