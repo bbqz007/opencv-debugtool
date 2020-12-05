@@ -35,6 +35,7 @@ SOFTWARE.
 #include <iostream>
 #include <memory>
 #include <vector>
+#include <map>
 #include <algorithm>
 using namespace cv;
 using namespace std;
@@ -251,24 +252,112 @@ class HoughLines_filter : public itf_filter
 public:
     HoughLines_filter(const string& name) : itf_filter(name)
     {
-        rho_ = 50;
-        theta_ = 0;
-        threshval_ = 0;
+        rho_ = 1000;
+        theta_ = 1;
+        threshval_ = 150;
         createTrackbar("rho*.1", name_, &rho_, 1000, itf_filter::update_, this);
-        createTrackbar("theta*.1", name_, &theta_, 1000, itf_filter::update_, this);
-        createTrackbar("threshval", name_, &threshval_, 7, itf_filter::update_, this);
+        createTrackbar("theta angle", name_, &theta_, 180, itf_filter::update_, this);
+        createTrackbar("threshval", name_, &threshval_, 1000, itf_filter::update_, this);
+        setTrackbarMin("theta angle", name_, 1);
     }
 protected:
     virtual Mat _filter(Mat& image)
     {
-        Mat res(image.size(), CV_8UC1);
-        HoughLines(image, res, rho_*.1, theta_*.1, threshval_);
-        imshow(name_, res);
+        Mat res = image;
+        vector<Vec2f> lines;
+        HoughLines(image, lines, rho_*.1, theta_*(CV_PI/180), threshval_);
+        Mat show = graph_->origin().clone();
+        for( size_t i = 0; i < lines.size(); i++ )
+        {
+            float rho = lines[i][0], theta = lines[i][1];
+            Point pt1, pt2;
+            double a = cos(theta), b = sin(theta);
+            double x0 = a*rho, y0 = b*rho;
+            pt1.x = cvRound(x0 + 1000*(-b));
+            pt1.y = cvRound(y0 + 1000*(a));
+            pt2.x = cvRound(x0 - 1000*(-b));
+            pt2.y = cvRound(y0 - 1000*(a));
+            line(show, pt1, pt2, Scalar(0,0,255), 2, LINE_AA);
+        }
+        imshow(name_, show);
         return res;
     }
     int rho_;
     int theta_;
     int threshval_;
+};
+
+class HoughLinesP_filter : public itf_filter
+{
+public:
+    HoughLinesP_filter(const string& name) : itf_filter(name)
+    {
+        rho_ = 1000;
+        theta_ = 1;
+        threshval_ = 50;
+        createTrackbar("rho*.1", name_, &rho_, 1000, itf_filter::update_, this);
+        createTrackbar("theta angle", name_, &theta_, 180, itf_filter::update_, this);
+        createTrackbar("threshval", name_, &threshval_, 1000, itf_filter::update_, this);
+        setTrackbarMin("theta angle", name_, 1);
+    }
+protected:
+    virtual Mat _filter(Mat& image)
+    {
+        Mat res = image;
+        vector<Vec4i> lines;
+        HoughLinesP(image, lines, rho_*.1, theta_*(CV_PI/180), threshval_, 50, 10);
+        Mat show = graph_->origin().clone();
+        for( size_t i = 0; i < lines.size(); i++ )
+        {
+            Vec4i l = lines[i];
+            line(show, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 2, LINE_AA);
+        }
+        imshow(name_, show);
+        return res;
+    }
+    int rho_;
+    int theta_;
+    int threshval_;
+};
+
+class HoughCircles_filter : public itf_filter
+{
+public:
+    HoughCircles_filter(const string& name) : itf_filter(name)
+    {
+        dist_ = 16;
+        radius1_ = 1;
+        radius2_ = 30;
+        createTrackbar("distance", name_, &dist_, 32, itf_filter::update_, this);
+        createTrackbar("radius (bound 1)", name_, &radius1_, 100, itf_filter::update_, this);
+        createTrackbar("radius (bound 2)", name_, &radius2_, 100, itf_filter::update_, this);
+        setTrackbarMin("radius (bound 1)", name_, 1);
+        setTrackbarMin("radius (bound 2)", name_, 1);
+    }
+protected:
+    virtual Mat _filter(Mat& image)
+    {
+        Mat res = image;
+        vector<Vec3f> circles;
+        HoughCircles(image, circles, HOUGH_GRADIENT, 1, image.rows/max(dist_, 1), 100, 30,
+                     min(radius1_, radius2_), max(radius1_, radius2_));
+        Mat show = graph_->origin().clone();
+        for( size_t i = 0; i < circles.size(); i++ )
+        {
+            Vec3i c = circles[i];
+            Point center = Point(c[0], c[1]);
+            // circle center
+            circle(show, center, 1, Scalar(0,100,100), 1, LINE_AA);
+            // circle outline
+            int radius = c[2];
+            circle(show, center, radius, Scalar(255,0,255), 1, LINE_AA);
+        }
+        imshow(name_, show);
+        return res;
+    }
+    int dist_;
+    int radius1_;
+    int radius2_;
 };
 
 class morphology_filter : public itf_filter
@@ -672,17 +761,63 @@ public:
     preCornerDetect_filter(const string& name) : itf_filter(name)
     {
         ksize_ = 3;
+        threshold1_ = 0;
+        threshold2_ = 0;
         createTrackbar("ksize|1", name_, &ksize_, 11, itf_filter::update_, this);
+        //createTrackbar("threshold*.001(bound 1)", name_, &threshold1_, 1000, itf_filter::update_, this);
+        //createTrackbar("threshold*.001(bound 2)", name_, &threshold2_, 1000, itf_filter::update_, this);
     }
 protected:
     virtual Mat _filter(Mat& image)
     {
         Mat res;
         preCornerDetect(image, res, ksize_|1);
+        double minV, maxV;
+        minMaxLoc(res, &minV, &maxV);
+        setTrackbarMin("threshold*.001(bound 1)", name_, int(minV*1000));
+        setTrackbarMin("threshold*.001(bound 2)", name_, int(minV*1000));
+        setTrackbarMax("threshold*.001(bound 1)", name_, int(maxV*1000));
+        setTrackbarMax("threshold*.001(bound 2)", name_, int(maxV*1000));
+        //Mat show = (res >= (min(threshold1_, threshold2_) / 1000.)) <= (max(threshold1_, threshold2_) / 1000.);
         imshow(name_, res);
         return res;
     }
     int ksize_;
+    int threshold1_;
+    int threshold2_;
+};
+
+class norm_minmax_filter : public itf_filter
+{
+public:
+    norm_minmax_filter(const string& name) : itf_filter(name)
+    {
+        op_ = 0;
+        switch_ = 1;
+        threshold_ = 128;
+        createTrackbar("threshold*.001", name_, &threshold_, 1000, itf_filter::update_, this);
+        createTrackbar("(full,<,>,<=,>=)", name_, &op_, 4, itf_filter::update_, this);
+        createTrackbar("normalize (OFF/ON)", name_, &op_, 1, itf_filter::update_, this);
+    }
+protected:
+    virtual Mat _filter(Mat& image)
+    {
+        Mat res;
+        if (switch_)
+            normalize(image, res, 0, 1, NORM_MINMAX);
+        switch (op_)
+        {
+        case 1: res = res < threshold_*.001; break;
+        case 2: res = res > threshold_*.001; break;
+        case 3: res = res <= threshold_*.001; break;
+        case 4: res = res >= threshold_*.001; break;
+        }
+        imshow(name_, res);
+        return res;
+    }
+    int threshold_;
+    int op_;
+    int switch_;
 };
 
 class warpAffine_filter;
@@ -1094,36 +1229,41 @@ public:
     {
         op_ = 0;
         channel_ = 0;
-        threshold_ = 128;
-        createTrackbar("threshold", name_, &threshold_, 255, itf_filter::update_, this);
-        createTrackbar("(full,==,!=,<,>,<=,>=,&,^,|,&~)", name_, &op_, 10, itf_filter::update_, this);
+        threshold1_ = 128;
+        threshold2_ = 128;
+        createTrackbar("threshold 1", name_, &threshold1_, 255, itf_filter::update_, this);
+        createTrackbar("threshold 2", name_, &threshold2_, 255, itf_filter::update_, this);
+        createTrackbar("(full,range,<|>,&,^,|,&~)", name_, &op_, 6, itf_filter::update_, this);
         createTrackbar("channel (0-3)", name_, &channel_, 3, itf_filter::update_, this);
     }
 protected:
     virtual Mat _filter(Mat& image)
     {
         Mat res(image.size(), CV_8U);
+        Mat mask;
         int ch[] = {std::min((image.type() >> CV_CN_SHIFT), channel_), 0};
         mixChannels(&image, 1, &res, 1, ch, 1);
         switch (op_)
         {
-        case 1: res = res == threshold_; break;
-        case 2: res = res != threshold_; break;
-        case 3: res = res < threshold_; break;
-        case 4: res = res > threshold_; break;
-        case 5: res = res <= threshold_; break;
-        case 6: res = res >= threshold_; break;
-        case 7: res = res & threshold_; break;
-        case 8: res = res ^ threshold_; break;
-        case 9: res = res | threshold_; break;
-        case 10: res = res & (~threshold_ & 0xff); break;
+        case 1:
+            inRange(res, Scalar(min(threshold1_, threshold2_)), Scalar(max(threshold1_, threshold2_)), mask);
+            bitwise_and(mask, res, res);
+            break;
+        case 2:
+            inRange(res, Scalar(min(threshold1_, threshold2_)), Scalar(max(threshold1_, threshold2_)), mask);
+            bitwise_and(~mask, res, res);
+            break;
+        case 3: res = res & threshold1_; break;
+        case 4: res = res ^ threshold1_; break;
+        case 5: res = res | threshold1_; break;
+        case 6: res = res & (~threshold1_ & 0xff); break;
         }
         imshow(name_, res);
         return res;
     }
     int op_;
     int channel_;
-    int threshold_;
+    int threshold1_, threshold2_;
 };
 
 class bgr2gray_filter : public itf_filter
@@ -1132,15 +1272,54 @@ public:
     bgr2gray_filter(const string& name) : itf_filter(name)
     {
         op_ = 0;
-        threshold_ = 128;
-        createTrackbar("threshold", name_, &threshold_, 255, itf_filter::update_, this);
-        createTrackbar("(full,==,!=,<,>,<=,>=,&,^,|,&~)", name_, &op_, 10, itf_filter::update_, this);
+        threshold1_ = 128;
+        threshold2_ = 128;
+        createTrackbar("threshold 1", name_, &threshold1_, 255, itf_filter::update_, this);
+        createTrackbar("threshold 2", name_, &threshold2_, 255, itf_filter::update_, this);
+        createTrackbar("(full,range,<|>,&,^,|,&~)", name_, &op_, 6, itf_filter::update_, this);
     }
 protected:
     virtual Mat _filter(Mat& image)
     {
         Mat res;
+        Mat mask;
         cvtColor(image, res, CV_BGR2GRAY);
+        switch (op_)
+        {
+        case 1:
+            inRange(res, Scalar(min(threshold1_, threshold2_)), Scalar(max(threshold1_, threshold2_)), mask);
+            bitwise_and(mask, res, res);
+            break;
+        case 2:
+            inRange(res, Scalar(min(threshold1_, threshold2_)), Scalar(max(threshold1_, threshold2_)), mask);
+            bitwise_and(~mask, res, res);
+            break;
+        case 3: res = res & threshold1_; break;
+        case 4: res = res ^ threshold1_; break;
+        case 5: res = res | threshold1_; break;
+        case 6: res = res & (~threshold1_ & 0xff); break;
+        }
+        imshow(name_, res);
+        return res;
+    }
+    int op_;
+    int threshold1_, threshold2_;
+};
+
+class gray2mask_filter : public itf_filter
+{
+public:
+    gray2mask_filter(const string& name) : itf_filter(name)
+    {
+        op_ = 0;
+        threshold_ = 128;
+        createTrackbar("threshold", name_, &threshold_, 255, itf_filter::update_, this);
+        createTrackbar("(full,==,!=,<,>,<=,>=)", name_, &op_, 6, itf_filter::update_, this);
+    }
+protected:
+    virtual Mat _filter(Mat& image)
+    {
+        Mat res = image;
         switch (op_)
         {
         case 1: res = res == threshold_; break;
@@ -1149,10 +1328,6 @@ protected:
         case 4: res = res > threshold_; break;
         case 5: res = res <= threshold_; break;
         case 6: res = res >= threshold_; break;
-        case 7: res = res & threshold_; break;
-        case 8: res = res ^ threshold_; break;
-        case 9: res = res | threshold_; break;
-        case 10: res = res & (~threshold_ & 0xff); break;
         }
         imshow(name_, res);
         return res;
@@ -1313,6 +1488,194 @@ protected:
     Ptr<AffineFeature> ext_;
 };
 
+class blob_filter : public itf_filter
+{
+public:
+    blob_filter(const string& name) : itf_filter(name)
+    {
+        SimpleBlobDetector::Params pDefaultBLOB;
+        pDefaultBLOB.thresholdStep = 10;
+        pDefaultBLOB.minThreshold = 10;
+        pDefaultBLOB.maxThreshold = 220;
+        pDefaultBLOB.minRepeatability = 2;
+        pDefaultBLOB.minDistBetweenBlobs = 10;
+        pDefaultBLOB.filterByColor = false;
+        pDefaultBLOB.blobColor = 0;
+        pDefaultBLOB.filterByArea = false;
+        pDefaultBLOB.minArea = 25;
+        pDefaultBLOB.maxArea = 5000;
+        pDefaultBLOB.filterByCircularity = false;
+        pDefaultBLOB.minCircularity = 0.9f;
+        pDefaultBLOB.maxCircularity = (float)1e37;
+        pDefaultBLOB.filterByInertia = false;
+        pDefaultBLOB.minInertiaRatio = 0.1f;
+        pDefaultBLOB.maxInertiaRatio = (float)1e37;
+        pDefaultBLOB.filterByConvexity = false;
+        pDefaultBLOB.minConvexity = 0.95f;
+        pDefaultBLOB.maxConvexity = (float)1e37;
+
+        // Param for first BLOB detector we want all
+        params_.push_back(pDefaultBLOB);
+        params_.back().filterByArea = true;
+        params_.back().minArea = 1;
+        params_.back().maxArea = 2900;
+        // Param for third BLOB detector we want only circular object
+        params_.push_back(pDefaultBLOB);
+        params_.back().filterByCircularity = true;
+        // Param for Fourth BLOB detector we want ratio inertia
+        params_.push_back(pDefaultBLOB);
+        params_.back().filterByInertia = true;
+        params_.back().minInertiaRatio = 0;
+        params_.back().maxInertiaRatio = (float)0.2;
+        // Param for fifth BLOB detector we want ratio inertia
+        params_.push_back(pDefaultBLOB);
+        params_.back().filterByConvexity = true;
+        params_.back().minConvexity = 0.;
+        params_.back().maxConvexity = (float)0.9;
+        // Param for six BLOB detector we want blob with gravity center color equal to 0
+        params_.push_back(pDefaultBLOB);
+        params_.back().filterByColor = true;
+        params_.back().blobColor = 0;
+
+        curfeat_ = -1;
+        feature_ = 0;
+        affine_ = 1;
+        curaff_ = affine_;
+        limits_ = 0;
+        update_ = 1;
+        val1_ = val2_ = 500;
+        area1_ = 0;
+        area2_ = 2900;
+        color_ = 0;
+        createTrackbar("feat count", name_, &limits_, INT_MAX, itf_filter::update_, this);
+        createTrackbar("feature:\nArea:0\nCircularity:1\nInertia:2\n"
+                       "Convexity:3\nColor:4\n",
+                        name_, &feature_, 4, itf_filter::update_, this);
+        createTrackbar("area (bound 1)", name_, &area1_, 10000, itf_filter::update_, this);
+        createTrackbar("area (bound 2)", name_, &area2_, 10000, itf_filter::update_, this);
+        createTrackbar("val (bound 1)", name_, &val1_, 1000, itf_filter::update_, this);
+        createTrackbar("val (bound 2)", name_, &val2_, 1000, itf_filter::update_, this);
+        createTrackbar("color", name_, &color_, 255, itf_filter::update_, this);
+    }
+protected:
+    Ptr<Feature2D> getBackend()
+    {
+        if (!backends_[feature_])
+        {
+            backends_[feature_] = SimpleBlobDetector::create(params_[feature_]);
+        }
+        else if (update_)
+        {
+            switch (feature_)
+            {
+            case 0:
+                {
+                    SimpleBlobDetector::Params& param = params_[feature_];
+                    param.minArea = min(area1_, area2_);
+                    param.maxArea = max(area1_, area2_);
+                }
+                break;
+            case 1:
+                {
+                    SimpleBlobDetector::Params& param = params_[feature_];
+                    param.minCircularity = .001*min(val1_, val2_);
+                    param.maxCircularity = .001*max(val1_, val2_);
+                }
+                break;
+            case 2:
+                {
+                    SimpleBlobDetector::Params& param = params_[feature_];
+                    param.minInertiaRatio = .001*min(val1_, val2_);
+                    param.maxInertiaRatio = .001*max(val1_, val2_);
+                }
+                break;
+            case 3:
+                {
+                    SimpleBlobDetector::Params& param = params_[feature_];
+                    param.minConvexity = .001*min(val1_, val2_);
+                    param.maxConvexity = .001*max(val1_, val2_);
+                }
+                break;
+            case 4:
+                {
+                    SimpleBlobDetector::Params& param = params_[feature_];
+                    param.blobColor = color_;
+                }
+                break;
+            }
+            backends_[feature_] = SimpleBlobDetector::create(params_[feature_]);
+        }
+        return backends_[feature_];
+    }
+    virtual Mat _filter(Mat& image)
+    {
+        Mat res = image;
+
+        bool changed = feature_ != curfeat_ || affine_ != curaff_ ;
+        curaff_ = affine_;
+        if (changed)
+        {
+           switch (feature_)
+           {
+           case 0:
+               {
+               }
+               break;
+           case 1:
+               {
+                    setTrackbarPos("val (bound 1)", name_, params_[feature_].minCircularity*1000);
+                    setTrackbarPos("val (bound 2)", name_, params_[feature_].maxCircularity*1000);
+               }
+               break;
+           case 2:
+               {
+                    setTrackbarPos("val (bound 1)", name_, params_[feature_].minInertiaRatio*1000);
+                    setTrackbarPos("val (bound 2)", name_, params_[feature_].maxInertiaRatio*1000);
+               }
+               break;
+           case 3:
+               {
+                    setTrackbarPos("val (bound 1)", name_, params_[feature_].minConvexity*1000);
+                    setTrackbarPos("val (bound 2)", name_, params_[feature_].maxConvexity*1000);
+               }
+               break;
+           case 4:
+               {
+               }
+               break;
+           }
+        }
+        Ptr<Feature2D> backend = getBackend();
+
+
+        vector<KeyPoint> kp1;
+        Mat desc1;
+        Mat show = image.clone();
+        backend->detect(image, kp1);
+        setTrackbarMax("feat count", name_, kp1.size());
+        setTrackbarPos("feat count", name_, kp1.size());
+        if (changed)
+            limits_ = kp1.size();
+        next_color(true);
+        for_each(kp1.begin(), kp1.begin() + limits_,
+                 [&](KeyPoint& kp) {
+                    circle(show, kp.pt, 3, next_color());
+                 });
+        imshow(name_, show);
+        return res;
+    }
+    int feature_;
+    int curfeat_;
+    int affine_;
+    int curaff_;
+    int limits_;
+    int update_;
+    int area1_, area2_;
+    int val1_, val2_;
+    int color_;
+    map<int, Ptr<Feature2D> > backends_;
+    vector<SimpleBlobDetector::Params> params_;
+};
 
 // opencv/samples/cpp/digits.cpp
 class deskew_filter : public itf_filter
@@ -2082,7 +2445,6 @@ itf_filter* createFilter(const char* filter, const string& name)
         return (itf_filter*)new morphology_filter(name);
     }
     BRANCH(Canny);
-    BRANCH(HoughLines);
     BRANCH(medianBlur);
     BRANCH(GaussianBlur);
     BRANCH(blur);
@@ -2092,18 +2454,26 @@ itf_filter* createFilter(const char* filter, const string& name)
     BRANCH(Sobel);
     BRANCH(Scharr);
     BRANCH(Laplacian);
+    BRANCH(pyrDown);
+    BRANCH(pyrUp);
+
+    BRANCH(warpAffine);
+    BRANCH(warpPerspective);
+    BRANCH(warpPolar);
+
     BRANCH(cornerMinEigenVal);
     BRANCH(cornerHarris);
     BRANCH(cornerEigenValsAndVecs);
     BRANCH(preCornerDetect);
-    BRANCH(warpAffine);
-    BRANCH(warpPerspective);
-    BRANCH(warpPolar);
-    BRANCH(pyrDown);
-    BRANCH(pyrUp);
+    BRANCH(norm_minmax);
+
+    BRANCH(HoughLines);
+    BRANCH(HoughLinesP);
+    BRANCH(HoughCircles);
 
     BRANCH(channel);
     BRANCH(bgr2gray);
+    BRANCH(gray2mask);
     BRANCH(range);
     BRANCH(colormap);
     BRANCH(cut);
@@ -2113,6 +2483,7 @@ itf_filter* createFilter(const char* filter, const string& name)
     BRANCH(zoom);
 
     BRANCH(feature);
+    BRANCH(blob);
 
     BRANCH(deskew);
     BRANCH(dem);
