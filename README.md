@@ -89,8 +89,21 @@ fg.apply([](Mat res) { /** detect object or other things */}).filter(frame);
 
 output CV_32F Mat which is computed description.
 
+### filter-normalize
+**normalize CV_32F Mat**
+
+when you use cornerXXX filter, you can get a output CV_32F Mat of result.
+
+you could use this filter to normalize the values of the CV_32F Mat, minVal to 0, maxVal to 1, others to 0.xxx. 
+
 ### filter-channel,bgr2gray
 **output gray or CV_8U mat**
+
+### filter-gray2mask
+a mask just has 0s or 255s, using your given threshold.
+
+### filter-range
+**hsv,hls,bgr channels in ranges**
 
 ### filter-cut
 **clip and save, or apply to your custom handler**
@@ -131,3 +144,4 @@ use case `cvtool crop,zoom` can clip a part of picture and strentch it to make m
 
 ### filter-feature
 **apply to detect 2d features** 
+
