@@ -30,6 +30,7 @@ fg.apply([](Mat res) { /** detect object or other things */}).filter(frame);
     BRANCH(Canny);
     BRANCH(threshold);
     BRANCH(morphology);
+    BRANCH(Canny);
     BRANCH(medianBlur);
     BRANCH(GaussianBlur);
     BRANCH(blur);
@@ -39,33 +40,58 @@ fg.apply([](Mat res) { /** detect object or other things */}).filter(frame);
     BRANCH(Sobel);
     BRANCH(Scharr);
     BRANCH(Laplacian);
-    BRANCH(cornerMinEigenVal);
-    BRANCH(cornerHarris);
-    BRANCH(cornerEigenValsAndVecs);
-    BRANCH(warpAffine);
-    BRANCH(warpPerspective);
-    BRANCH(warpPolar);
     BRANCH(pyrDown);
     BRANCH(pyrUp);
 
+    BRANCH(warpAffine);
+    BRANCH(warpPerspective);
+    BRANCH(warpPolar);
+
+    BRANCH(cornerMinEigenVal);
+    BRANCH(cornerHarris);
+    BRANCH(cornerEigenValsAndVecs);
+    BRANCH(preCornerDetect);
+    BRANCH(norm_minmax);
+
+    BRANCH(HoughLines);
+    BRANCH(HoughLinesP);
+    BRANCH(HoughCircles);
+
     BRANCH(channel);
     BRANCH(bgr2gray);
+    BRANCH(gray2mask);
     BRANCH(range);
     BRANCH(colormap);
-    
     BRANCH(cut);
     BRANCH(cut2);
+    BRANCH(anno);
     BRANCH(crop);
     BRANCH(zoom);
-    
+
+    BRANCH(deskew);
     BRANCH(dem);
     BRANCH(distrans);
-    
+
     BRANCH(contours);
     BRANCH(match);
     BRANCH(cascade);
+    
     BRANCH(feature);
+    BRANCH(blob);
 ```
+### filter-morphology,medianBlur,GaussianBlur,blur,bilateral,box
+**image process**
+### filter-sobel,scharr
+### filter-Laplacian
+### filter-canny
+### filter-cornerMinEigenVal,cornerHarris,cornerEigenValsAndVecs,preCornerDetect
+**corner detector**
+
+output CV_32F Mat which is computed description.
+
+### filter-channel,bgr2gray
+**output gray or CV_8U mat**
+
 ### filter-cut
 **clip and save, or apply to your custom handler**
 
@@ -104,4 +130,4 @@ use case `cvtool crop,zoom` can clip a part of picture and strentch it to make m
 **apply to cascade**
 
 ### filter-feature
-**apply to detect 2d features**
+**apply to detect 2d features** 
