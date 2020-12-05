@@ -143,5 +143,5 @@ use case `cvtool crop,zoom` can clip a part of picture and strentch it to make m
 **apply to cascade**
 
 ### filter-feature
-**apply to detect 2d features** 
+**apply to detect features** 
 
