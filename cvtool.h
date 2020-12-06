@@ -252,10 +252,10 @@ class HoughLines_filter : public itf_filter
 public:
     HoughLines_filter(const string& name) : itf_filter(name)
     {
-        rho_ = 1000;
+        rho_ = 10;
         theta_ = 1;
         threshval_ = 150;
-        createTrackbar("rho*.1", name_, &rho_, 1000, itf_filter::update_, this);
+        createTrackbar("rho*.1", name_, &rho_, 100, itf_filter::update_, this);
         createTrackbar("theta angle", name_, &theta_, 180, itf_filter::update_, this);
         createTrackbar("threshval", name_, &threshval_, 1000, itf_filter::update_, this);
         setTrackbarMin("theta angle", name_, 1);
@@ -292,10 +292,10 @@ class HoughLinesP_filter : public itf_filter
 public:
     HoughLinesP_filter(const string& name) : itf_filter(name)
     {
-        rho_ = 1000;
+        rho_ = 10;
         theta_ = 1;
         threshval_ = 50;
-        createTrackbar("rho*.1", name_, &rho_, 1000, itf_filter::update_, this);
+        createTrackbar("rho*.1", name_, &rho_, 100, itf_filter::update_, this);
         createTrackbar("theta angle", name_, &theta_, 180, itf_filter::update_, this);
         createTrackbar("threshval", name_, &threshval_, 1000, itf_filter::update_, this);
         setTrackbarMin("theta angle", name_, 1);
@@ -1547,6 +1547,7 @@ public:
         area1_ = 0;
         area2_ = 2900;
         color_ = 0;
+        bgorigin_ = 0;
         createTrackbar("feat count", name_, &limits_, INT_MAX, itf_filter::update_, this);
         createTrackbar("feature:\nArea:0\nCircularity:1\nInertia:2\n"
                        "Convexity:3\nColor:4\n",
@@ -1556,6 +1557,7 @@ public:
         createTrackbar("val (bound 1)", name_, &val1_, 1000, itf_filter::update_, this);
         createTrackbar("val (bound 2)", name_, &val2_, 1000, itf_filter::update_, this);
         createTrackbar("color", name_, &color_, 255, itf_filter::update_, this);
+        createTrackbar("use origin (OFF/ON)", name_, &bgorigin_, 1, itf_filter::update_, this);
     }
 protected:
     Ptr<Feature2D> getBackend()
@@ -1577,6 +1579,7 @@ protected:
                 break;
             case 1:
                 {
+                    // bug if val1 >= .9, val2 should not be [.9, 1.)
                     SimpleBlobDetector::Params& param = params_[feature_];
                     param.minCircularity = .001*min(val1_, val2_);
                     param.maxCircularity = .001*max(val1_, val2_);
@@ -1650,17 +1653,20 @@ protected:
 
         vector<KeyPoint> kp1;
         Mat desc1;
-        Mat show = image.clone();
+        Mat src = (bgorigin_)? graph_->origin() : image;
+        Mat show = (bgorigin_)? graph_->origin().clone() : image.clone();
         backend->detect(image, kp1);
         setTrackbarMax("feat count", name_, kp1.size());
         setTrackbarPos("feat count", name_, kp1.size());
         if (changed)
             limits_ = kp1.size();
+        drawKeypoints(src, kp1, show);
         next_color(true);
-        for_each(kp1.begin(), kp1.begin() + limits_,
-                 [&](KeyPoint& kp) {
-                    circle(show, kp.pt, 3, next_color());
-                 });
+        if (limits_)
+            for_each(kp1.begin(), kp1.begin() + limits_,
+                     [&](KeyPoint& kp) {
+                        circle(show, kp.pt, kp.size, next_color());
+                     });
         imshow(name_, show);
         return res;
     }
@@ -1673,6 +1679,7 @@ protected:
     int area1_, area2_;
     int val1_, val2_;
     int color_;
+    int bgorigin_;
     map<int, Ptr<Feature2D> > backends_;
     vector<SimpleBlobDetector::Params> params_;
 };
