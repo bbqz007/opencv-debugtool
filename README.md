@@ -14,6 +14,15 @@ cvtool <image> <filter,...>
 ```
 cvtool Mario/%04d.png pyrDown,pyrUp,morphology,channel,canny,contours
 ```
+```
+cvtool $SomeBuildingImage morphology,bgr2gray,canny,houghlinesP
+```
+```
+cvtool $SomeImage morphology,medianblur,bgr2gray,houghcircles
+```
+```
+cvtool $SomeImage morphology,blob
+```
 # custom program
 ```
 #include "cvtool.h"
@@ -84,6 +93,8 @@ fg.apply([](Mat res) { /** detect object or other things */}).filter(frame);
 ### filter-sobel,scharr
 ### filter-Laplacian
 ### filter-canny
+for houghlinesP case, take a bigger threshval-1, and a aperture size of 3, and switch on L2gradient to avoid more noise.
+
 ### filter-cornerMinEigenVal,cornerHarris,cornerEigenValsAndVecs,preCornerDetect
 **corner detector**
 
@@ -113,7 +124,7 @@ select a region to clip, **double click right_mouse_button** to save picture, de
 **clip but not save, and pass it to next filter**
 
 select a region to clip, **double click right_mouse_button** to pass it to next filter.
-### filter-cut2
+### filter-cut2,anno
 **similar to opencv_annotation.**
 
 help you easily build samples for machine learning. 
