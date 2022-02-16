@@ -5,7 +5,10 @@ a visual filter graph help you debug your cv program.
 ![img](https://img2020.cnblogs.com/blog/665551/202011/665551-20201117044204452-738904851.gif)
 # make
 ```
-g++ `pkg-config --libs --cflags opencv3` -std=c++11 -o cvtool cvtool.cpp` 
+g++ `pkg-config --cflags opencv3` -O3 -std=c++11 -o cvtool cvtool.cpp `pkg-config --libs opencv3`
+```
+```
+g++ `pkg-config --cflags opencv4` -O3 -std=c++11 -o cvtool cvtool.cpp `pkg-config --libs opencv4`
 ```
 # usage
 ```
