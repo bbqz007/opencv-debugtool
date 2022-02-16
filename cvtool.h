@@ -40,6 +40,14 @@ SOFTWARE.
 using namespace cv;
 using namespace std;
 
+#if (CV_VERSION_MAJOR >= 4)
+#define CV_BGR2GRAY cv::COLOR_BGR2GRAY
+#define CV_BGR2HSV cv::COLOR_BGR2HSV
+#define CV_BGR2HLS cv::COLOR_BGR2HLS
+#define CV_TM_SQDIFF TM_SQDIFF
+#define CV_TM_CCORR_NORMED TM_CCORR_NORMED
+#endif
+
 namespace zhelper
 {
 
