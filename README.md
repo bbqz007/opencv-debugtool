@@ -10,6 +10,10 @@ g++ `pkg-config --cflags opencv3` -O3 -std=c++11 -o cvtool cvtool.cpp `pkg-confi
 ```
 g++ `pkg-config --cflags opencv4` -O3 -std=c++11 -o cvtool cvtool.cpp `pkg-config --libs opencv4`
 ```
+# !!!
+you can only train cascade with opencv3.4 and use them with opencv4.
+
+aknowledge from the book `Qt 5 and OpenCV 4 Computer Vision Projects` page `231`.
 # usage
 ```
 cvtool <image> <filter,...>
@@ -25,6 +29,10 @@ cvtool $SomeImage morphology,medianblur,bgr2gray,houghcircles
 ```
 ```
 cvtool $SomeImage morphology,blob
+```
+```
+```
+cvtool $SomeImage cut2,cascade
 ```
 # custom program
 ```
