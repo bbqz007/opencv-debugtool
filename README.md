@@ -37,6 +37,9 @@ cvtool $SomeImage morphology,blob
 ```
 cvtool $SomeImage cut2,cascade
 ```
+# key
+* `Q` or `q` to quit the program.
+* `space` to next frame, is the input image is group of pictures, or gif, or video.
 # custom program
 ```
 #include "cvtool.h"
