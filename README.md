@@ -103,11 +103,29 @@ fg.apply([](Mat res) { /** detect object or other things */}).filter(frame);
     BRANCH(blob);
 ```
 ### filter-morphology,medianBlur,GaussianBlur,blur,bilateral,box
+* morphology
+  * trackbar1, ``, 0-20 
+  * trackbar2, `method:`, 0-6
+    * 0, `open`
+    * 1, `close`
+    * 2, `erode`
+    * 3, `dilate`
+    * 4, `gradient`
+    * 5, `tophat`
+    * 6, `blackhat`
+  * trackbar3, `rect/ellipse/cross`, 0-2
+  * trackbar4, `kernel(OFF/ON)`, 0-1
 **image process**
 ### filter-sobel,scharr
 ### filter-Laplacian
 ### filter-canny
 for houghlinesP case, take a bigger threshval-1, and a aperture size of 3, and switch on L2gradient to avoid more noise.
+
+* canny
+  * trackbar1, `threshval-1`, 0-255 
+  * trackbar2, `threshval-2`, 0-255 
+  * trackbar3, `aperture size |1`, 0-7 
+  * trackbar4, `L2 gradient (OFF/ON)`, 0-1
 
 ### filter-cornerMinEigenVal,cornerHarris,cornerEigenValsAndVecs,preCornerDetect
 **corner detector**
@@ -160,13 +178,47 @@ use case `cvtool crop,zoom` can clip a part of picture and strentch it to make m
 
 ### filter-contours
 **apply to find contours**
+* contours
+  * trackbar1, `threshold*.001`, 0-200 
+  * trackbar2, `show poly(OFF/ON)`, 0-1
+  * trackbar3, `show contours(OFF/ON)`, 0-1
+  * trackbar4, `RETR:`, 0-4
+    * 0, `RETR_EXTERNAL`
+    * 1, `RETR_LIST`
+    * 2, `RETR_CCOMP`
+    * 3, `RETR_TREE`
+    * 4, `RETR_FLOODFILL`
 
 ### filter-match
 **apply to match template**
+* match
+  * trackbar1, `method:`, 0-4
+    * 0, SQDIFF
+    * 1, SQDIFF NORMED
+    * 2, TM CCORR
+    * 3, TM CCORR NORMED
+    * 4, TM COEFF NORMED
+  * trackbar2, `threshold*.001%`, 0-10000
 
 ### filter-cascade
 **apply to cascade**
+* cascade
+  * trackbar1, `switch(OFF/ON)`, 0-1
 
 ### filter-feature
 **apply to detect features** 
+* feature
+  * trackbar1, `feat count`, 0-INT_MAX
+  * trackbar2, `feature:`, 0-9
+    * 0, `sift`
+    * 1, `orb`
+    * 2, `brisk`
+    * 3, `kaze`
+    * 4, `akaze`
+    * 5, `mser`
+    * 6, `fast`
+    * 7, `agast`
+    * 8, `gftt`
+    * 9, `blob`
+  * trackbar3, `Affine (OFF/ON)`, 0-1 
 
