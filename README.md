@@ -14,6 +14,10 @@ g++ `pkg-config --cflags opencv4` -O3 -std=c++11 -o cvtool cvtool.cpp `pkg-confi
 you can only train cascade with opencv3.4 and use them with opencv4.
 
 aknowledge from the book `Qt 5 and OpenCV 4 Computer Vision Projects` page `231`.
+
+you can download a windows prebuilt opencv3.4 from [here](https://github.com/huihut/OpenCV-MinGW-Build), size of 22M only.
+
+if you do not know which prebuilt is x64 or x86, read [OpenCV-MinGW-Build/issues/19#](https://github.com/huihut/OpenCV-MinGW-Build/issues/19#issuecomment-1044967562).
 # usage
 ```
 cvtool <image> <filter,...>
