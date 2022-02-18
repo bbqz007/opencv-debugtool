@@ -35,7 +35,7 @@ cvtool $SomeImage morphology,medianblur,bgr2gray,houghcircles
 cvtool $SomeImage morphology,blob
 ```
 ```
-cvtool $SomeImage cut2,cascade
+cvtool $SomeImage anno,cascade
 ```
 # key
 * `Q` or `q` to quit the program.
