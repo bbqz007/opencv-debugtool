@@ -68,6 +68,13 @@ public:
         name_ = os.str();
         namedWindow(name_);
     }
+	itf_filter(const string& name, const string& comment) : num_(++snum_)
+	{
+		ostringstream os;
+		os << num_ << ": " << name << comment << " -=>@github.com/bbqz007";
+		name_ = os.str();
+		namedWindow(name_);
+	}
     virtual ~itf_filter()
     {
         destroyWindow(name_);
@@ -76,6 +83,10 @@ public:
     {
         return _filter(image);
     }
+	void bringTop()
+	{
+		setWindowProperty(name_, 5, 0);
+	}
 protected:
     static const Scalar& next_color(bool reset = false)
     {
@@ -134,6 +145,16 @@ public:
     }
     Mat origin() { return (retmp_.empty())?tmp_:retmp_; }
     void update_origin(Mat m) { retmp_ = m; }
+	void bringTop(int i)
+	{
+		if (i < filters_.size())
+			filters_[i]->bringTop();
+	}
+	void bringTop()
+	{
+		if (!filters_.empty())
+			filters_.back()->bringTop();
+	}
 protected:
     Mat filter()
     {
@@ -1745,6 +1766,12 @@ public:
         state_ = cut_IDLE;
         setMouseCallback(name_, on_mouse, this);
     }
+	cut_filter(const string& name, const string& comment) : itf_filter(name, comment)
+	{
+		use_save_ = true;
+		state_ = cut_IDLE;
+		setMouseCallback(name_, on_mouse, this);
+	}
     cut_filter& apply(function<void(Mat,Mat)> f)
     {
         apply_ = f;
@@ -1755,7 +1782,7 @@ protected:
     {
         ((cut_filter*)ctx)->_on_mouse(event, x, y, flags, ctx);
     }
-    void _on_mouse(int event, int x, int y, int flags, void* ctx)
+    virtual void _on_mouse(int event, int x, int y, int flags, void* ctx)
     {
         ostringstream os;
         switch (event)
@@ -2243,7 +2270,7 @@ protected:
 class match_filter : public cut_filter
 {
 public:
-    match_filter(const string& name) : cut_filter(name)
+    match_filter(const string& name) : cut_filter(name, " (select) ")
     {
         use_save_ = false;
         use_mask_ = false;
@@ -2264,9 +2291,20 @@ protected:
                   if (!sel.empty())
                       templ_ = sel;
                   _MatchingMethod();
+				  if (is_on_mouse_)
+				  {
+					  setWindowProperty(result_window_, 5, 0);
+					  setWindowProperty(image_window_, 5, 0);
+				  }
             });
         return cut_filter::_filter(image);
     }
+	virtual void _on_mouse(int event, int x, int y, int flags, void* ctx)
+	{
+		is_on_mouse_ = true;
+		cut_filter::_on_mouse(event, x, y, flags, ctx);
+		is_on_mouse_ = false;
+	}
     static void MatchingMethod(int, void* ctx)
     {
         ((match_filter*)ctx)->_MatchingMethod();
@@ -2356,6 +2394,7 @@ protected:
     int max_Trackbar_ = 5;
     int threshold = 0;
     bool init = false;
+	bool is_on_mouse_ = false;
 };
 
 class cascade_filter : public itf_filter

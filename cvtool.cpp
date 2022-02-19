@@ -42,6 +42,16 @@ int main(int argc, char** argv)
             do
 			{
             	c = waitKey(0);
+				switch (c)
+				{
+				case '1':case '2':case '3':case '4':case '5':case '6':
+				case '7':case '8':case '9':
+					fg.bringTop(c - '1');
+					break;
+				case '=':
+					fg.bringTop();
+					break;
+				}
         	} while (c != 'q'
                		&& c != 'Q'
                		&& c != ' ');
