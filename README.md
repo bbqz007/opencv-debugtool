@@ -37,9 +37,14 @@ cvtool $SomeImage morphology,blob
 ```
 cvtool $SomeImage anno,cascade
 ```
+```
+cvtool $SomeImage crop,match
+```
 # key
 * `Q` or `q` to quit the program.
 * `space` to next frame, is the input image is group of pictures, or gif, or video.
+* `0-9` to pick up a window of filters and bring to top.
+* `=` to pick up the end of filters.
 # custom program
 ```
 #include "cvtool.h"
@@ -194,7 +199,13 @@ use case `cvtool crop,zoom` can clip a part of picture and strentch it to make m
 
 ### filter-match
 **apply to match template**
-* match
+this filter has three windows, include `match (select)` , `Match image` and `result window`.
+
+use mouse drag a region in the `match (select)` for the other windows to match this region.
+
+right click the mouse to ensure the region you selected.
+
+* `Match image`
   * trackbar1, `method:`, 0-4
     * 0, SQDIFF
     * 1, SQDIFF NORMED
