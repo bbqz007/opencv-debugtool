@@ -199,6 +199,7 @@ use case `cvtool crop,zoom` can clip a part of picture and strentch it to make m
 
 ### filter-match
 **apply to match template**
+
 this filter has three windows, include `match (select)` , `Match image` and `result window`.
 
 use mouse drag a region in the `match (select)` for the other windows to match this region.
