@@ -42,7 +42,7 @@ cvtool $SomeImage crop,match
 ```
 # key
 * `Q` or `q` to quit the program.
-* `space` to next frame, is the input image is group of pictures, or gif, or video.
+* `space` to next frame, avaiable if the input image is group of pictures, or gif, or video.
 * `0-9` to pick up a window of filters and bring to top.
 * `=` to pick up the end of filters.
 # custom program
