@@ -529,3 +529,8 @@ END>
 Training until now has taken 0 days 0 hours 7 minutes 56 seconds.
 
 ```
+
+BaseLine: AVX512-COMMON
+```
+Training until now has taken 0 days 0 hours 6 minutes 26 seconds.
+```
