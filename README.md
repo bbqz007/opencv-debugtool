@@ -1,5 +1,12 @@
+# about
+* homepage
+  * https://www.cnblogs.com/bbqzsl
+* repo
+  * https://github.com/bbqz007/opencv-debugtool
+  * https://gitee.com/bbqz007/opencv-debugtool
+
 # zhelper-cvtool
-a visual filter graph help you debug your cv program.
+a visual filter graph help you debug your opencv program.
 ![img](https://img2020.cnblogs.com/blog/665551/202011/665551-20201125040001797-1306568990.gif)
 ![img](https://img2020.cnblogs.com/blog/665551/202011/665551-20201117044056777-1920859742.gif)
 ![img](https://img2020.cnblogs.com/blog/665551/202011/665551-20201117044204452-738904851.gif)
