@@ -27,6 +27,7 @@ SOFTWARE.
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/objdetect.hpp>
 #include <opencv2/features2d.hpp>
+#include <opencv2/cvconfig.h>
 
 //#include <opencv2/imgcodecs.hpp>
 #include <string>
@@ -46,6 +47,10 @@ using namespace std;
 #define CV_BGR2HLS cv::COLOR_BGR2HLS
 #define CV_TM_SQDIFF TM_SQDIFF
 #define CV_TM_CCORR_NORMED TM_CCORR_NORMED
+#endif
+
+#ifdef  OPENCV_ENABLE_NONFREE
+#define NON_FREE
 #endif
 
 namespace zhelper
@@ -1468,9 +1473,11 @@ protected:
         curaff_ = affine_;
         if (feature_ != curfeat_)
         {
-            switch (feature_)
+            
+			switch (feature_)
             {
             // both detector and extractor
+#ifdef NON_FREE
             case 0: backend_ = SIFT::create(); break;
             case 1: backend_ = ORB::create(); break;
             case 2: backend_ = BRISK::create(); break;
@@ -1482,8 +1489,11 @@ protected:
             case 7: backend_ = AgastFeatureDetector::create(); break;
             case 8: backend_ = GFTTDetector::create(); break;
             case 9: backend_ = SimpleBlobDetector::create(); break;
-            }
+#endif
+			}
+#ifdef NON_FREE
             ext_ = AffineFeature::create(backend_);
+#endif
             curfeat_ = feature_;
         }
 
@@ -1492,8 +1502,12 @@ protected:
         Mat desc1;
         Mat show = image.clone();
         //ext_->detectAndCompute(image, Mat(), kp1, desc1);
-        if (affine_ && feature_ < 5)
-            ext_->detect(image, kp1);
+		if (affine_ && feature_ < 5)
+#ifdef NON_FREE
+			ext_->detect(image, kp1);
+#else
+			;
+#endif
         else
             backend_->detect(image, kp1);
         setTrackbarMax("feat count", name_, kp1.size());
@@ -1514,7 +1528,9 @@ protected:
     int curaff_;
     int limits_;
     Ptr<Feature2D> backend_;
+#ifdef NON_FREE
     Ptr<AffineFeature> ext_;
+#endif
 };
 
 class blob_filter : public itf_filter
@@ -1522,6 +1538,7 @@ class blob_filter : public itf_filter
 public:
     blob_filter(const string& name) : itf_filter(name)
     {
+#ifdef NON_FREE
         SimpleBlobDetector::Params pDefaultBLOB;
         pDefaultBLOB.thresholdStep = 10;
         pDefaultBLOB.minThreshold = 10;
@@ -1565,7 +1582,7 @@ public:
         params_.push_back(pDefaultBLOB);
         params_.back().filterByColor = true;
         params_.back().blobColor = 0;
-
+#endif
         curfeat_ = -1;
         feature_ = 0;
         affine_ = 1;
@@ -1593,8 +1610,10 @@ protected:
     {
         if (!backends_[feature_])
         {
+#ifdef NON_FREE
             backends_[feature_] = SimpleBlobDetector::create(params_[feature_]);
-        }
+#endif
+		}
         else if (update_)
         {
             switch (feature_)
@@ -1635,8 +1654,10 @@ protected:
                 }
                 break;
             }
+#ifdef NON_FREE
             backends_[feature_] = SimpleBlobDetector::create(params_[feature_]);
-        }
+#endif
+		}
         return backends_[feature_];
     }
     virtual Mat _filter(Mat& image)
@@ -1689,7 +1710,9 @@ protected:
         setTrackbarPos("feat count", name_, kp1.size());
         if (changed)
             limits_ = kp1.size();
+#ifdef NON_FREE
         drawKeypoints(src, kp1, show);
+#endif
         next_color(true);
         if (limits_)
             for_each(kp1.begin(), kp1.begin() + limits_,
@@ -1787,7 +1810,11 @@ protected:
         ostringstream os;
         switch (event)
         {
-        case EVENT_RBUTTONDBLCLK:
+#ifdef HAVE_QT
+		case EVENT_MBUTTONDBLCLK:
+#else
+		case EVENT_RBUTTONDBLCLK:
+#endif
             if (cut_FIN == state_)
             {
                 Mat dst;
@@ -1927,6 +1954,9 @@ protected:
     }
     void save_pos(const string& name)
     {
+#ifdef HAVE_WIN32UI
+		_wmkdir(L"pos/");
+#endif
         imwrite("pos/" + name, curve_);
         ofstream fout;
         fout.open("pos/pos.txt", ios_base::out|ios_base::app);
@@ -1953,6 +1983,9 @@ protected:
                      //morph(rect).copyTo(neg(rect));
                      ((Mat)Mat::zeros(rect.size(), neg.type())).copyTo(neg(rect));
                  });
+#ifdef HAVE_WIN32UI
+		_wmkdir(L"neg/");
+#endif
         imwrite("neg/" + name, neg);
         ofstream fout;
         fout.open("neg/neg.txt", ios_base::out|ios_base::app);
@@ -1965,11 +1998,19 @@ protected:
         switch (event)
         {
         case EVENT_MBUTTONDOWN:
+#ifdef HAVE_QT
+			if (!(EVENT_FLAG_CTRLKEY & flags))
+				break;
+#endif
             state_ = cut_IDLE;
             rect_ = Rect();
             posrect_.clear();
             break;
-        case EVENT_RBUTTONDBLCLK:
+#ifdef HAVE_QT
+		case EVENT_MBUTTONDBLCLK:
+#else
+		case EVENT_RBUTTONDBLCLK:
+#endif
             if (!posrect_.empty())
             {
                 Mat dst;
@@ -2456,7 +2497,7 @@ protected:
 
         return res;
     }
-    int switch_ = false;
+    int switch_ = true;
     int x_;
     int y_;
     int scalefactor_;

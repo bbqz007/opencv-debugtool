@@ -21,11 +21,45 @@ SOFTWARE.
 using namespace zhelper;
 using namespace cvtool;
 
+#ifdef _WIN32
+#ifndef _WINUSER_
+extern "C" int __stdcall MessageBoxA(void*, const char*, const char*, int);
+#endif
+#endif
+
 int main(int argc, char** argv)
 {
     cout << "Usage: cvtool <img> <filter,...>\n";
-    if (argc != 3)
-        return -1;
+	if (argc != 3)
+	{
+		if (argc == 1)
+		{
+#ifdef _WIN32
+			::MessageBoxA(NULL, "Usage: cvtool <img> <filter,...>\n", "cvtool usgaes", 1);
+#else
+			std::string message = "Usage: cvtool <img> <filter,...>\n";
+			Mat img = cv::Mat::zeros(cv::Size(800, 60), CV_8UC3);
+			// Define font and calculate text size
+			int font = cv::FONT_HERSHEY_SIMPLEX;
+			int fontScale = 1;
+			int thickness = 2;
+			cv::Size textSize = cv::getTextSize(message, font, fontScale, thickness, 0);
+
+			// Calculate text position to center it on the image
+			int textX = (img.cols - textSize.width) / 2;
+			int textY = (img.rows + textSize.height) / 2;
+
+			// Put the text onto the image
+			cv::putText(img, message, cv::Point(textX, textY), font, fontScale, cv::Scalar(255, 255, 255), thickness);
+
+			// Display the image as a message box
+			cv::imshow("cvtool usgaes", img);
+			cv::waitKey(0);
+			cv::destroyAllWindows();
+#endif
+		}
+		return -1;
+	}
 
     filter_graph fg;
     fg.open(argv[2]);
