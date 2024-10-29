@@ -3,8 +3,11 @@
   * https://www.cnblogs.com/bbqzsl
 * repo
   * https://github.com/bbqz007/opencv-debugtool
-  * https://gitee.com/bbqz007/opencv-debugtool
-
+  * https://gitee.com/bbqz007/zhelper-cvtool
+* download
+  * https://github.com/bbqz007/opencv-debugtool/releases
+  * https://gitee.com/bbqz007/zhelper-cvtool/releases
+    
 # zhelper-cvtool
 a visual filter graph help you debug your opencv program.
 ![img](https://img2020.cnblogs.com/blog/665551/202011/665551-20201125040001797-1306568990.gif)
