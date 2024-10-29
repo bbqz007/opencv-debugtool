@@ -1,6 +1,6 @@
 # about
 * homepage
-  * https://www.cnblogs.com/bbqzsl
+  * [https://www.cnblogs.com/bbqzsl](https://www.cnblogs.com/bbqzsl/p/13992225.html)
 * repo
   * https://github.com/bbqz007/opencv-debugtool
   * https://gitee.com/bbqz007/zhelper-cvtool
