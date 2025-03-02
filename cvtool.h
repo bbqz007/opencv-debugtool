@@ -49,7 +49,7 @@ using namespace std;
 #define CV_TM_CCORR_NORMED TM_CCORR_NORMED
 #endif
 
-#ifdef  OPENCV_ENABLE_NONFREE
+#if defined(OPENCV_ENABLE_NONFREE) || CV_VERSION_MAJOR >= 4
 #define NON_FREE
 #endif
 
@@ -2265,48 +2265,66 @@ protected:
 class contours_filter : public itf_filter
 {
 public:
-    contours_filter(const string& name) : itf_filter(name)
-    {
-        threshold_ = 20;
-        retr_ = 1;
-        showpoly_ = 1;
-        showcontours_ = 1;
-        createTrackbar("threshold*.001", name_, &threshold_, 200, itf_filter::update_, this);
-        createTrackbar("show poly(OFF/ON)", name_, &showpoly_, 1, itf_filter::update_, this);
-        createTrackbar("show contours(OFF/ON)", name_, &showcontours_, 1, itf_filter::update_, this);
-        createTrackbar("RETR:\n"
-            "0 - RETR_EXTERNAL \n"
-            "1 - RETR_LIST\n"
-            "2 - RETR_CCOMP\n"
-            "3 - RETR_TREE\n"
-            "4 - RETR_FLOODFILL\n", name_,
-            &retr_, 4, itf_filter::update_, this);
-    }
+	contours_filter(const string& name) : itf_filter(name)
+	{
+		threshold_ = 20;
+		retr_ = 1;
+		showpoly_ = 1;
+		showcontours_ = 1;
+		showconvexHull_ = 0;
+		createTrackbar("threshold*.001", name_, &threshold_, 200, itf_filter::update_, this);
+		createTrackbar("show poly(OFF/ON)", name_, &showpoly_, 1, itf_filter::update_, this);
+		createTrackbar("show contours(OFF/ON)", name_, &showcontours_, 1, itf_filter::update_, this);
+		createTrackbar("show convexHull(OFF/ON)", name_, &showconvexHull_, 1, itf_filter::update_, this);
+		createTrackbar("RETR:\n"
+			"0 - RETR_EXTERNAL \n"
+			"1 - RETR_LIST\n"
+			"2 - RETR_CCOMP\n"
+			"3 - RETR_TREE\n"
+			"4 - RETR_FLOODFILL\n", name_,
+			&retr_, 4, itf_filter::update_, this);
+	}
 protected:
-    virtual Mat _filter(Mat& image)
-    {
-        vector<vector<Point> > contours;
-        findContours(image, contours, retr_, CHAIN_APPROX_SIMPLE);
-        vector<Point> approx;
+	virtual Mat _filter(Mat& image)
+	{
+		vector<vector<Point> > contours;
+		findContours(image, contours, retr_, CHAIN_APPROX_SIMPLE);
+		vector<Point> approx;
 
-        Mat show = graph_->origin().clone();
-        // test each contour
-        if (showpoly_)
-            for( size_t i = 0; i < contours.size(); i++ )
-            {
-                approxPolyDP(contours[i], approx, arcLength(contours[i], true)*threshold_/1000., true);
-                polylines(show, approx, true, Scalar(255, 0, 0), 2, LINE_AA);
-            }
-        if (showcontours_)
-            drawContours(show, contours, -1, Scalar(0, 255, 0), 1, LINE_AA);
-        imshow(name_, show);
-        return image;
-    }
-    int threshold_;
-    int retr_;
-    int showpoly_;
-    int showcontours_;
+		Mat show = graph_->origin().clone();
+		// test each contour
+		if (showpoly_)
+			for (size_t i = 0; i < contours.size(); i++)
+			{
+				approxPolyDP(contours[i], approx, arcLength(contours[i], true)*threshold_ / 1000., true);
+				polylines(show, approx, true, Scalar(255, 0, 0), 2, LINE_AA);
+			}
+		if (showcontours_)
+			drawContours(show, contours, -1, Scalar(0, 255, 0), 1, LINE_AA);
+		if (showconvexHull_)
+		{
+			for (size_t i = 0; i < contours.size(); i++)
+			{
+				std::vector<cv::Point> hull;
+				auto& points = contours[i];
+				cv::convexHull(points, hull);
+				for (size_t i = 0; i < hull.size() && hull.size() > 5; i++)
+				{
+					cv::line(show, hull[i], hull[(i + 1) % hull.size()], cv::Scalar(0, 0, 255), 3, LINE_AA);
+				}
+			}
+		}
+		imshow(name_, show);
+		return image;
+	}
+	int threshold_;
+	int retr_;
+	int showpoly_;
+	int showcontours_;
+	int showconvexHull_;
 };
+
+typedef contours_filter convexHull_filter;
 
 class match_filter : public cut_filter
 {
@@ -2584,6 +2602,7 @@ itf_filter* createFilter(const char* filter, const string& name)
     BRANCH(dem);
     BRANCH(distrans);
 
+	BRANCH(convexHull);
     BRANCH(contours);
     BRANCH(match);
     BRANCH(cascade);
