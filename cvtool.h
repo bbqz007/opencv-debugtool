@@ -1377,7 +1377,7 @@ public:
     {
         h1_ = s1_ = v1_ = 0;
         h2_ = s2_ = v2_ = 255;
-        method_ = inv_ = 0;
+		method_ = inv_ = mask_only_ = 0;
         createTrackbar("h1(b,h)", name_, &h1_, 255, itf_filter::update_, this);
         createTrackbar("h2(b,h)", name_, &h2_, 255, itf_filter::update_, this);
         createTrackbar("s1(g,l)", name_, &s1_, 255, itf_filter::update_, this);
@@ -1386,6 +1386,7 @@ public:
         createTrackbar("v2(r,s)", name_, &v2_, 255, itf_filter::update_, this);
         createTrackbar("hsv,bgr,hls", name_, &method_, 2, itf_filter::update_, this);
         createTrackbar("invert mask", name_, &inv_, 1, itf_filter::update_, this);
+		createTrackbar("mask/no mask/mask only", name_, &mask_only_, 2, itf_filter::update_, this);
     }
 protected:
     virtual Mat _filter(Mat& image)
@@ -1402,13 +1403,19 @@ protected:
                 Scalar(min(h1_, h2_), min(s1_, s2_), min(v1_, v2_)),
                 Scalar(max(h1_, h2_), max(s1_, s2_), max(v1_, v2_)),
                 mask);
-        bitwise_and(image, image, res, (inv_)?~mask:mask);
+		if (mask_only_ == 2)
+			res = (inv_) ? ~mask : mask;
+		else if (mask_only_ == 0)
+			bitwise_and(image, image, res, (inv_) ? ~mask : mask);
+		else
+			res = hsv;
         imshow(name_, res);
         return res;
     }
     int h1_, h2_, s1_, s2_, v1_, v2_;
     int method_;
     int inv_;
+	int mask_only_;
 };
 
 class colormap_filter : public itf_filter
@@ -2272,9 +2279,12 @@ public:
 		showpoly_ = 1;
 		showcontours_ = 1;
 		showconvexHull_ = 0;
+		showarea_ = 0;
+		last_max_area_ = 0;
 		createTrackbar("threshold*.001", name_, &threshold_, 200, itf_filter::update_, this);
 		createTrackbar("show poly(OFF/ON)", name_, &showpoly_, 1, itf_filter::update_, this);
 		createTrackbar("show contours(OFF/ON)", name_, &showcontours_, 1, itf_filter::update_, this);
+		createTrackbar("show area(OFF/MAX)", name_, &showarea_, 1, itf_filter::update_, this);
 		createTrackbar("show convexHull(OFF/ON)", name_, &showconvexHull_, 1, itf_filter::update_, this);
 		createTrackbar("RETR:\n"
 			"0 - RETR_EXTERNAL \n"
@@ -2292,6 +2302,26 @@ protected:
 		vector<Point> approx;
 
 		Mat show = graph_->origin().clone();
+		/// Z#20250303
+		int area = 0;
+		if (!show.empty())
+		{
+			area = show.rows * show.cols;
+			if (area != last_max_area_)
+			{
+				last_max_area_ = area;
+				if (showarea_ > 0)
+					showarea_ = min(last_max_area_, showarea_);
+				setTrackbarMax("show area(OFF/MAX)", name_, last_max_area_);
+			}
+		}
+		else
+		{
+			showarea_ = 0;
+			last_max_area_ = 0;
+			setTrackbarMax("show area(OFF/MAX)", name_, 1);
+		}
+
 		// test each contour
 		if (showpoly_)
 			for (size_t i = 0; i < contours.size(); i++)
@@ -2314,6 +2344,31 @@ protected:
 				}
 			}
 		}
+		if (showarea_)
+		{
+			for (size_t i = 0; i< contours.size(); i++) 
+			{
+				using namespace cv;
+				auto& src = show;
+				double area = contourArea(contours[i]);
+				double length = arcLength(contours[i], true);
+
+				if (area < showarea_) {
+					continue;
+				}
+				cout << "area = " << area << ", length = " << length << endl;
+				RotatedRect rrt = minAreaRect(contours[i]);// 获取最小外接矩形
+
+				Point2f pt[4];
+				rrt.points(pt);
+				line(src, pt[0], pt[1], Scalar(128, 128, 0), 8, 8);
+				line(src, pt[1], pt[2], Scalar(128, 128, 0), 8, 8);
+				line(src, pt[2], pt[3], Scalar(128, 128, 0), 8, 8);
+				line(src, pt[3], pt[0], Scalar(128, 128, 0), 8, 8);
+				Point  center = rrt.center;
+				circle(src, center, 2, Scalar(0, 0, 128), 8, 8); // 绘制最小外接矩形的中心点
+			}
+		}
 		imshow(name_, show);
 		return image;
 	}
@@ -2322,6 +2377,8 @@ protected:
 	int showpoly_;
 	int showcontours_;
 	int showconvexHull_;
+	int showarea_;
+	int last_max_area_;
 };
 
 typedef contours_filter convexHull_filter;
