@@ -8,6 +8,9 @@ cvtool images\apple-tree.awebp zoom,range,channel,morphology,morphology,contours
   * y 50% 
 * range
   * hsv
+  * h 0-10
+  * s 43-255
+  * v 46-255
   * mask only
 * morphology
   * kernel on
