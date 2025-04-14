@@ -48,3 +48,13 @@ cvtool images\apple-tree01.awebp zoom,range,channel,morphology,morphology,contou
   * method open
 * contours
   * show area 1600
+ 
+``` bash
+cvtool images\gcores.jfif morphology,bgr2gray,canny,houghlinesP
+```
+* bgr2gray
+  * threshold1 128
+  * method 3 (&)
+* canny
+  * size 4
+  * L2gradient OFF/ON
